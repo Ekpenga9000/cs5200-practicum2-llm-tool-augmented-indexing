@@ -100,3 +100,42 @@ _(To be finalized during Day 1 kickoff — update this section once agreed.)_
 - Keep all reasoning traces and tool-call logs; they're valuable data, not just intermediate output.
 - Commit early and often — avoid a single large upload at the end.
 - Flag any benchmark access/setup problems immediately rather than losing time on workarounds.
+
+## Git Workflow
+
+Follow this process for all commits and pull requests:
+
+- Never push commits directly to `main`.
+- All regular work should be committed and pushed to the `develop` branch.
+- Before pushing any commit, always pull the latest changes from `develop` into your branch first.
+- When opening a pull request, message the designated approver for review and approval.
+
+### Step-by-Step: Pull from `develop` Before Pushing
+
+1. Make sure your local work is committed or stashed.
+2. Switch to your feature branch.
+3. Fetch the latest remote branches.
+4. Merge or rebase the latest `develop` branch into your branch.
+5. Resolve any conflicts, then test your changes.
+6. Push your branch after it is up to date with `develop`.
+
+Example commands:
+
+```bash
+git status
+git checkout <your-branch>
+git fetch origin
+git merge origin/develop
+# or: git rebase origin/develop
+git status
+git push origin <your-branch>
+```
+
+If your team is working directly on `develop`, still pull the latest `develop` before every push:
+
+```bash
+git checkout develop
+git fetch origin
+git pull origin develop
+git push origin develop
+```
