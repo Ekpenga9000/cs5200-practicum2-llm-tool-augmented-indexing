@@ -13,30 +13,34 @@ All eight benchmark runs use the **same shared pipeline**, built collaboratively
 
 ## Team & Roles
 
-| Student | Phase 1 Component | Phase 2 Schemas | Theme |
-|---|---|---|---|
-| Louis | Baseline module | TPC-H, TPC-DS | Analytical / data warehouse |
-| Sylfhen | Condition A module (No-Tool) | JOB, STATS | Join-order / cardinality estimation |
-| Alan | Condition B module (Tool-Augmented) | TPC-C, TATP | OLTP |
-| Ikenna | Measurement & aggregation module | SSB, CEB | Decision-support / cardinality estimation |
+| Student | Phase 1 Component                   | Phase 2 Schemas | Theme                                     |
+| ------- | ----------------------------------- | --------------- | ----------------------------------------- |
+| Louis   | Baseline module                     | TPC-H, TPC-DS   | Analytical / data warehouse               |
+| Sylfhen | Condition A module (No-Tool)        | JOB, STATS      | Join-order / cardinality estimation       |
+| Alan    | Condition B module (Tool-Augmented) | TPC-C, TATP     | OLTP                                      |
+| Ikenna  | Measurement & aggregation module    | SSB, CEB        | Decision-support / cardinality estimation |
 
 ## Project Phases
 
 ### Phase 1 — Build the Shared Pipeline (Week 1, Jul 15–21)
+
 Each team member builds and unit-tests one pipeline component against a simple test schema (Days 1–4), then the team merges all four components and runs a full end-to-end integration test together (Days 5–7).
 
 **Before any code is written:** the team agrees on shared data formats — the schema/workload object, the recommendation object, and the baseline output format — to avoid integration issues later.
 
 ### Phase 2 — Independent Schema Runs (Weeks 2–4)
+
 Once merged, each person runs the exact same shared pipeline against their two assigned benchmarks. This phase is schema setup, running the pipeline, and analysis — not new pipeline code.
 
 Four steps per schema:
+
 1. **Baseline** — set up schema/dataset, run `EXPLAIN ANALYZE` with no extra indexes.
 2. **Condition A run** — no-tool LLM recommendations, apply indexes, measure improvement.
 3. **Condition B run** — tool-augmented LLM recommendations, save full tool-call log, apply indexes, measure improvement.
 4. **Within-schema analysis** — compare A vs. B vs. baseline, write a short summary.
 
 ### Week 4 — Cross-Domain Combination
+
 All eight schema results are combined into one team-wide comparison table and joint analysis of whether tool access helps consistently across workload types.
 
 ## Repository Structure
@@ -86,13 +90,13 @@ _(To be finalized during Day 1 kickoff — update this section once agreed.)_
 
 ## Timeline
 
-| Week | Dates | Milestone |
-|---|---|---|
-| 1 | Jul 15 – Jul 21 | Phase 1: build components, merge, integration test |
-| 2 | Jul 22 | Run pipeline on Schema 1 |
-| — | Jul 23 – Jul 26 | Practicum 2 Demo |
-| 3 | Jul 27 – Jul 31 | Run pipeline on Schema 2 |
-| 4 | Aug 1 – Aug 3 | Combine all eight results; final report |
+| Week | Dates           | Milestone                                          |
+| ---- | --------------- | -------------------------------------------------- |
+| 1    | Jul 15 – Jul 21 | Phase 1: build components, merge, integration test |
+| 2    | Jul 22          | Run pipeline on Schema 1                           |
+| —    | Jul 23 – Jul 26 | Practicum 2 Demo                                   |
+| 3    | Jul 27 – Jul 31 | Run pipeline on Schema 2                           |
+| 4    | Aug 1 – Aug 3   | Combine all eight results; final report            |
 
 ## Notes
 
@@ -138,4 +142,35 @@ git checkout develop
 git fetch origin
 git pull origin develop
 git push origin develop
+```
+
+### Switching Between Branches
+
+Use `git switch` to checkout an existing branch and then return to the branch you were on before:
+
+```bash
+git switch <existing-branch>
+git switch -
+```
+
+If you prefer the older command, `git checkout` does the same for existing branches:
+
+```bash
+git checkout <existing-branch>
+git checkout -
+```
+
+If you have uncommitted changes, either commit them first or stash them before switching:
+
+```bash
+git stash push -m "wip"
+git switch <existing-branch>
+git switch -
+git stash pop
+```
+
+If you need to create a new branch and move to it at the same time:
+
+```bash
+git switch -c <new-branch>
 ```
