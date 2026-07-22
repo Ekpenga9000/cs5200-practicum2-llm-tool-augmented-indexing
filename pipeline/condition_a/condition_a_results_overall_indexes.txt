@@ -1,0 +1,2 @@
+CREATE INDEX idx_title_production_year ON title(production_year);
+CREATE INDEX idx_cast_info_movie_id ON cast_info(movie_id);
