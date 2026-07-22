@@ -1,0 +1,3 @@
+query_id,query_text,complexity_tier
+q1,"SELECT * FROM title WHERE production_year = 2010;",Simple
+q2,"SELECT t.title, COUNT(*) FROM title t JOIN cast_info c ON t.id = c.movie_id GROUP BY t.title;",Medium
