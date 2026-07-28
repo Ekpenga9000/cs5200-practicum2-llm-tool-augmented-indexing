@@ -1,4 +1,5 @@
 import csv
+from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -21,7 +22,7 @@ def run(schema_path: str, workload_path: str, output_path: str):
     workload_rows = load_workload(workload_path)
 
     prompt = build_prompt(schema_ddl, workload_rows)
-    result = call_llm_no_tool(prompt)
+    result = call_llm_no_tool(prompt, schema_ddl)
 
     reasoning_by_qid = {
         r["query_id"]: r for r in result["per_query_reasoning"]
@@ -51,4 +52,9 @@ def run(schema_path: str, workload_path: str, output_path: str):
 
 
 if __name__ == "__main__":
-    run("schema.sql", "workload.csv", "condition_a_results.csv")
+    base_dir = Path(__file__).resolve().parent
+    run(
+        str(base_dir / "schema.sql"),
+        str(base_dir / "workload.csv"),
+        str(base_dir / "condition_a_results.csv"),
+    )
