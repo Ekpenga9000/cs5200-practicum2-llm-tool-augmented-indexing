@@ -1,20 +1,62 @@
 import time
 import json
+import re
 import anthropic
 
 client = anthropic.Anthropic()
 
 
-def call_llm_no_tool(prompt: str, model: str = "claude-sonnet-4-6", max_retries: int = 3) -> dict:
+def extract_schema_columns(schema_ddl: str) -> dict[str, set[str]]:
     """
-    Calls the LLM with no tool access (Condition A) and returns its
-    parsed JSON recommendation.
+    Parses CREATE TABLE statements out of the schema DDL and returns
+    a mapping of table_name -> set of column_names, so recommended
+    indexes can be checked against what actually exists.
+    """
+    tables = {}
+    for match in re.finditer(r'CREATE TABLE (\w+)\s*\((.*?)\)\s*;', schema_ddl, re.S):
+        table, cols_block = match.groups()
+        cols = {c.strip().split()[0] for c in cols_block.split(",") if c.strip()}
+        tables[table] = cols
+    return tables
 
-    Retries on transient API errors or malformed JSON responses, since a
-    single dropped call or a stray markdown fence shouldn't kill an entire
-    schema run.
+
+def validate_index_stmt(stmt: str, schema_cols: dict[str, set[str]]) -> bool:
+    """
+    Returns True only if the CREATE INDEX statement references a real
+    table and real columns from the schema. Anything else is treated
+    as a hallucination.
+    """
+    m = re.match(r'CREATE INDEX \w+ ON (\w+)\((.*?)\)', stmt.strip())
+    if not m:
+        return False
+    table, cols = m.groups()
+    col_names = {c.strip() for c in cols.split(",")}
+    return table in schema_cols and col_names.issubset(schema_cols[table])
+
+
+def filter_hallucinated_indexes(indexes: list[str], schema_cols: dict[str, set[str]]) -> tuple[list[str], list[str]]:
+    """
+    Splits a list of CREATE INDEX statements into (valid, rejected).
+    Rejected statements are logged by the caller, not silently dropped.
+    """
+    valid, rejected = [], []
+    for stmt in indexes:
+        if validate_index_stmt(stmt, schema_cols):
+            valid.append(stmt)
+        else:
+            rejected.append(stmt)
+    return valid, rejected
+
+
+def call_llm_no_tool(prompt: str, schema_ddl: str, model: str = "claude-sonnet-4-6", max_retries: int = 3) -> dict:
+    """
+    Calls the LLM with no tool access (Condition A), parses its JSON
+    recommendation, and validates every recommended index against the
+    real schema before returning. Retries on transient API errors or
+    malformed JSON responses.
     """
     last_err = None
+    schema_cols = extract_schema_columns(schema_ddl)
 
     for attempt in range(max_retries):
         try:
@@ -35,13 +77,30 @@ def call_llm_no_tool(prompt: str, model: str = "claude-sonnet-4-6", max_retries:
 
             result = json.loads(raw_text)
 
-            # Validate the shape we actually depend on downstream, so a
-            # malformed-but-parseable response fails loudly here rather
-            # than as a KeyError deep inside run_condition_a.py.
             if "recommended_indexes" not in result or "per_query_reasoning" not in result:
                 raise ValueError(
                     f"LLM response missing required keys. Got: {list(result.keys())}"
                 )
+
+            # Validate top-level recommendations
+            valid, rejected = filter_hallucinated_indexes(
+                result["recommended_indexes"], schema_cols
+            )
+            if rejected:
+                print(f"[validation] Rejected {len(rejected)} hallucinated index(es): {rejected}")
+            result["recommended_indexes"] = valid
+            result["rejected_indexes"] = rejected
+
+            # Validate per-query recommendations too
+            for entry in result["per_query_reasoning"]:
+                q_valid, q_rejected = filter_hallucinated_indexes(
+                    entry.get("recommended_indexes", []), schema_cols
+                )
+                if q_rejected:
+                    print(f"[validation] Query {entry.get('query_id')}: "
+                          f"rejected {q_rejected}")
+                entry["recommended_indexes"] = q_valid
+                entry["rejected_indexes"] = q_rejected
 
             return result
 
