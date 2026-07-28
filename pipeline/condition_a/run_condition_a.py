@@ -5,13 +5,16 @@ load_dotenv()
 from prompt_builder import build_prompt
 from condition_a import call_llm_no_tool
 
+
 def load_workload(path: str) -> list[dict]:
     with open(path) as f:
         return list(csv.DictReader(f))
 
+
 def load_schema(path: str) -> str:
     with open(path) as f:
         return f.read()
+
 
 def run(schema_path: str, workload_path: str, output_path: str):
     schema_ddl = load_schema(schema_path)
@@ -35,16 +38,17 @@ def run(schema_path: str, workload_path: str, output_path: str):
             rec = reasoning_by_qid.get(qid, {})
             writer.writerow([
                 qid,
-                "; ".join(rec.get("relevant_indexes", [])),
+                "; ".join(rec.get("recommended_indexes", [])),
                 rec.get("reasoning", ""),
                 "",
                 "",
             ])
 
     with open(output_path.replace(".csv", "_overall_indexes.txt"), "w") as f:
-        f.write("\n".join(result["overall_recommended_indexes"]))
+        f.write("\n".join(result["recommended_indexes"]))
 
     print(f"Wrote {output_path}")
+
 
 if __name__ == "__main__":
     run("schema.sql", "workload.csv", "condition_a_results.csv")
