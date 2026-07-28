@@ -23,11 +23,11 @@ Respond with ONLY valid JSON, no other text, no markdown fences, in this exact
 format:
 
 {{
-  "overall_recommended_indexes": ["CREATE INDEX ... ON ...(...);", "..."],
+  "recommended_indexes": ["CREATE INDEX ... ON ...(...);", "..."],
   "per_query_reasoning": [
     {{
       "query_id": "q1",
-      "relevant_indexes": ["CREATE INDEX ... ON ...(...);"],
+      "recommended_indexes": ["CREATE INDEX ... ON ...(...);"],
       "reasoning": "short explanation of why these indexes help this query"
     }}
   ]
