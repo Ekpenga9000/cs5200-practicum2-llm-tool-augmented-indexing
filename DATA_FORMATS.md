@@ -19,10 +19,13 @@ There are three things we need to agree on:
 **It has two parts:**
 
 ### Part A — The Schema
+
 The raw `CREATE TABLE` statements that build the database. Nothing fancy — just the DDL.
 
 ### Part B — The Workload
+
 The list of queries we'll run, where each query has:
+
 - **query_id** — a short label, like `Q1`, `Q2`
 - **query_text** — the actual SQL query
 - **complexity_tier** — one of `Simple`, `Medium`, or `Complex` (based on how many tables it joins and whether it has aggregation/subqueries)
@@ -48,11 +51,12 @@ The list of queries we'll run, where each query has:
 }
 ```
 
-**Decisions we need to make as a team:**
-- [ ] Do we store this as one JSON file, or as two separate files (`schema.sql` + `workload.csv`)?
-- [ ] Is `query_text` always plain SQL, or do we need placeholders?
-- [ ] Do complexity tiers get labeled here upfront, or added later?
-- [ ] For schemas with many tables (like TPC-H's 8 tables), is `schema_ddl` one long string, or a list of per-table strings?
+**Final baseline-module contract:**
+
+- Stored as one JSON file.
+- `schema_ddl` is one string that may contain multiple `CREATE TABLE` statements separated by semicolons.
+- `query_text` is plain SQL for the query to run.
+- `complexity_tier` is included in the input file and must be one of `Simple`, `Medium`, or `Complex`.
 
 ---
 
@@ -63,6 +67,7 @@ The list of queries we'll run, where each query has:
 **Who produces it:** Sylfhen's Condition A module and Alan's Condition B module both produce this — same shape, same fields, for either condition.
 
 **It needs to include:**
+
 - **query_id** or overall recommendation scope — which query/queries this recommendation relates to
 - **recommended_indexes** — a list of the indexes the LLM suggests (e.g., `["CREATE INDEX idx_books_author ON books(author_id);"]`)
 - **llm_reasoning_text** — the LLM's explanation for why it picked these indexes
@@ -84,13 +89,22 @@ The list of queries we'll run, where each query has:
   "recommended_indexes": ["CREATE INDEX idx_books_author ON books(author_id);"],
   "llm_reasoning_text": "Tested two candidate indexes; this one had the lowest estimated cost.",
   "tool_call_log": [
-    {"candidate": "CREATE INDEX idx_books_title ON books(title);", "estimated_cost": 450, "accepted": false},
-    {"candidate": "CREATE INDEX idx_books_author ON books(author_id);", "estimated_cost": 120, "accepted": true}
+    {
+      "candidate": "CREATE INDEX idx_books_title ON books(title);",
+      "estimated_cost": 450,
+      "accepted": false
+    },
+    {
+      "candidate": "CREATE INDEX idx_books_author ON books(author_id);",
+      "estimated_cost": 120,
+      "accepted": true
+    }
   ]
 }
 ```
 
 **Decisions we need to make as a team:**
+
 - [ ] Is this one recommendation per query, or one recommendation covering the whole workload?
 - [ ] What exact field name do we use for the index list — `recommended_indexes` or something else?
 - [ ] How is `tool_call_log` stored — inside the same file, or as a separate linked file?
@@ -104,21 +118,28 @@ The list of queries we'll run, where each query has:
 **Who consumes it:** Ikenna's measurement module reads this to compare against the results after indexes are added.
 
 **It has one row per query, with these columns:**
+
 - **query_id** — matches the query_id from the workload
 - **execution_time_ms** — how long the query actually took to run
 - **query_plan_text** — the query plan `EXPLAIN ANALYZE` returned
 
 ### Example (as a table)
 
-| query_id | execution_time_ms | query_plan_text |
-|---|---|---|
-| Q1 | 42 | Seq Scan on books (cost=0.00..15.00 rows=1) |
-| Q2 | 310 | Hash Join (cost=1.15..22.35 rows=10) |
+| query_id | execution_time_ms | query_plan_text                             |
+| -------- | ----------------- | ------------------------------------------- |
+| Q1       | 42                | Seq Scan on books (cost=0.00..15.00 rows=1) |
+| Q2       | 310               | Hash Join (cost=1.15..22.35 rows=10)        |
 
-**Decisions we need to make as a team:**
-- [ ] Do we store `query_plan_text` as raw text, or a cleaned-up/summarized version?
-- [ ] CSV or JSON for this file?
-- [ ] Does this match exactly what Condition A/B results files need (same column names), so Ikenna doesn't have to translate between formats?
+**Final baseline-module contract:**
+
+- Stored as CSV.
+- File name: `baseline_results.csv`.
+- Columns, in order: `query_id`, `execution_time_ms`, `query_plan_text`.
+- `query_plan_text` is the raw `EXPLAIN ANALYZE` text joined into one cell.
+
+**Open integration question for later modules:**
+
+- Does Condition A/B need to match these same column names exactly, or should measurement translate between formats?
 
 ---
 
