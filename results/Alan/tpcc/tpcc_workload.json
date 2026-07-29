@@ -1,0 +1,78 @@
+{
+  "schema_name": "tpcc",
+  "ddl_file": "tpcc_schema.sql",
+  "queries": [
+    {
+      "query_id": "Q1",
+      "transaction": "New-Order",
+      "query_text": "SELECT w_tax FROM warehouse WHERE w_id = 1;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q2",
+      "transaction": "New-Order",
+      "query_text": "SELECT d_next_o_id, d_tax FROM district WHERE d_w_id = 1 AND d_id = 3;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q3",
+      "transaction": "New-Order",
+      "query_text": "SELECT c_discount, c_last, c_credit FROM customer WHERE c_w_id = 1 AND c_d_id = 3 AND c_id = 42;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q4",
+      "transaction": "New-Order",
+      "query_text": "SELECT i_price, i_name, i_data FROM item WHERE i_id = 501;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q5",
+      "transaction": "New-Order",
+      "query_text": "SELECT s_quantity, s_data, s_dist_03 FROM stock WHERE s_i_id = 501 AND s_w_id = 1;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q6",
+      "transaction": "Payment",
+      "query_text": "SELECT c_id, c_balance FROM customer WHERE c_w_id = 1 AND c_d_id = 3 AND c_last = 'BARBARANTI' ORDER BY c_first;",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q7",
+      "transaction": "Order-Status",
+      "query_text": "SELECT o_id, o_carrier_id, o_entry_d FROM orders WHERE o_w_id = 1 AND o_d_id = 3 AND o_c_id = 42 ORDER BY o_id DESC LIMIT 1;",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q8",
+      "transaction": "Order-Status",
+      "query_text": "SELECT ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d FROM order_line WHERE ol_w_id = 1 AND ol_d_id = 3 AND ol_o_id = 1000;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q9",
+      "transaction": "Delivery",
+      "query_text": "SELECT no_o_id FROM new_order WHERE no_w_id = 1 AND no_d_id = 3 ORDER BY no_o_id ASC LIMIT 1;",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q10",
+      "transaction": "Delivery",
+      "query_text": "SELECT SUM(ol_amount) FROM order_line WHERE ol_w_id = 1 AND ol_d_id = 3 AND ol_o_id = 1000;",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q11",
+      "transaction": "Stock-Level",
+      "query_text": "SELECT COUNT(DISTINCT s_i_id) FROM order_line, stock WHERE ol_w_id = 1 AND ol_d_id = 3 AND ol_o_id < 1000 AND ol_o_id >= 980 AND s_w_id = 1 AND s_i_id = ol_i_id AND s_quantity < 15;",
+      "complexity_tier": "Complex"
+    },
+    {
+      "query_id": "Q12",
+      "transaction": "Cross-cutting (analytical, not native to a single TPC-C transaction -- added for tier spread)",
+      "query_text": "SELECT c_last, SUM(ol_amount) AS total_spent FROM customer JOIN orders ON c_w_id = o_w_id AND c_d_id = o_d_id AND c_id = o_c_id JOIN order_line ON o_w_id = ol_w_id AND o_d_id = ol_d_id AND o_id = ol_o_id WHERE c_w_id = 1 GROUP BY c_last ORDER BY total_spent DESC LIMIT 10;",
+      "complexity_tier": "Complex"
+    }
+  ]
+}
