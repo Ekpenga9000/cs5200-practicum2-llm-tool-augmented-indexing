@@ -8,6 +8,7 @@ Usage:
 
 import csv
 import glob
+import math
 import os
 import re
 import sys
@@ -15,7 +16,7 @@ import sys
 SKIP_FILES = {"schema.sql", "fkindexes.sql", "schematext.sql"}
 
 
-def classify_complexity(sql_text: str) -> str:
+def extract_query_features(sql_text: str) -> dict:
     sql_lower = sql_text.lower()
 
     from_match = re.search(r"from\s+(.*?)\s+where", sql_lower, re.S)
@@ -32,19 +33,53 @@ def classify_complexity(sql_text: str) -> str:
         re.search(r"\bgroup\s+by\b", sql_lower)
         or re.search(r"\b(count|sum|avg|min|max)\s*\(", sql_lower)
     )
-    has_subquery = sql_text.count("(select") > 0
+    has_subquery = "(select" in sql_lower  # case-insensitive via sql_lower
 
-    if num_tables <= 3 and not has_aggregation and not has_subquery:
+    return {
+        "num_tables": num_tables,
+        "has_aggregation": has_aggregation,
+        "has_subquery": has_subquery,
+    }
+
+
+def complexity_score(features: dict) -> int:
+    # Deterministic weighted score
+    return (
+        features["num_tables"]
+        + int(features["has_aggregation"])
+        + int(features["has_subquery"])
+    )
+
+
+def percentile_nearest_rank(values: list[int], p: float) -> int:
+    # Deterministic percentile: nearest-rank method
+    if not values:
+        return 0
+    sorted_vals = sorted(values)
+    rank = max(1, math.ceil(p * len(sorted_vals)))
+    return sorted_vals[rank - 1]
+
+
+def derive_complexity_cutoffs(scores: list[int]) -> tuple[int, int]:
+    simple_max = percentile_nearest_rank(scores, 0.33)
+    complex_min = percentile_nearest_rank(scores, 0.66)
+    # Keep a valid middle bucket if percentiles collapse
+    if complex_min <= simple_max:
+        complex_min = simple_max + 1
+    return simple_max, complex_min
+
+
+def classify_complexity(score: int, simple_max: int, complex_min: int) -> str:
+    if score <= simple_max:
         return "Simple"
-    elif num_tables > 6 or ((has_aggregation or has_subquery) and num_tables >= 4):
+    if score >= complex_min:
         return "Complex"
-    else:
-        return "Medium"
+    return "Medium"
 
 
 def build_workload(job_dir: str, output_path: str) -> None:
     sql_files = sorted(glob.glob(os.path.join(job_dir, "*.sql")))
-    rows = []
+    staged = []
 
     for filepath in sql_files:
         filename = os.path.basename(filepath)
@@ -59,13 +94,42 @@ def build_workload(job_dir: str, output_path: str) -> None:
 
         query_id = os.path.splitext(filename)[0]
         query_text = " ".join(sql_text.split())
-        complexity_tier = classify_complexity(sql_text)
+        features = extract_query_features(sql_text)
+        score = complexity_score(features)
 
-        rows.append({
-            "query_id": query_id,
-            "query_text": query_text,
-            "complexity_tier": complexity_tier,
-        })
+        staged.append(
+            {
+                "query_id": query_id,
+                "query_text": query_text,
+                "score": score,
+            }
+        )
+
+    scores = [r["score"] for r in staged]
+
+    # Sanity check: verify the score distribution has actual spread
+    # before trusting the derived cutoffs.
+    if scores:
+        print(
+            f"Score distribution: min={min(scores)}, max={max(scores)}, "
+            f"median={sorted(scores)[len(scores)//2]}"
+        )
+    else:
+        print("Score distribution: no queries found")
+
+    simple_max, complex_min = derive_complexity_cutoffs(scores)
+
+    rows = []
+    for r in staged:
+        rows.append(
+            {
+                "query_id": r["query_id"],
+                "query_text": r["query_text"],
+                "complexity_tier": classify_complexity(
+                    r["score"], simple_max, complex_min
+                ),
+            }
+        )
 
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(
@@ -79,6 +143,7 @@ def build_workload(job_dir: str, output_path: str) -> None:
         tier_counts[row["complexity_tier"]] += 1
 
     print(f"Wrote {len(rows)} queries to {output_path}")
+    print(f"Cutoffs (score): Simple <= {simple_max}, Complex >= {complex_min}")
     print(f"  Simple:  {tier_counts['Simple']}")
     print(f"  Medium:  {tier_counts['Medium']}")
     print(f"  Complex: {tier_counts['Complex']}")
