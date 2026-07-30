@@ -1,0 +1,23 @@
+{
+    "name": "baseline-module",
+    "version": "1.0.0",
+    "private": true,
+    "type": "commonjs",
+    "scripts": {
+        "baseline": "ts-node src/cli.ts",
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "run:samples": "ts-node src/scripts/run-samples.ts"
+    },
+    "dependencies": {
+        "csv-writer": "^1.6.0",
+        "dotenv": "^16.4.5",
+        "pg": "^8.12.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.2",
+        "@types/pg": "^8.11.10",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.7.2"
+    }
+}

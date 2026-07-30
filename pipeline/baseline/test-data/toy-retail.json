@@ -1,0 +1,21 @@
+{
+  "schema_name": "toy_retail",
+  "schema_ddl": "CREATE TABLE customers (id INT PRIMARY KEY, name TEXT NOT NULL, region TEXT NOT NULL); CREATE TABLE orders (id INT PRIMARY KEY, customer_id INT NOT NULL REFERENCES customers(id), order_date DATE NOT NULL, total_amount NUMERIC(10,2) NOT NULL); CREATE TABLE order_items (id INT PRIMARY KEY, order_id INT NOT NULL REFERENCES orders(id), sku TEXT NOT NULL, quantity INT NOT NULL, unit_price NUMERIC(10,2) NOT NULL);",
+  "workload": [
+    {
+      "query_id": "Q1",
+      "query_text": "SELECT * FROM customers WHERE region = 'West'",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q2",
+      "query_text": "SELECT c.region, SUM(o.total_amount) FROM customers c JOIN orders o ON o.customer_id = c.id GROUP BY c.region ORDER BY SUM(o.total_amount) DESC",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q3",
+      "query_text": "SELECT o.id, SUM(oi.quantity * oi.unit_price) AS line_total FROM orders o JOIN order_items oi ON oi.order_id = o.id GROUP BY o.id HAVING SUM(oi.quantity * oi.unit_price) > 100 ORDER BY line_total DESC",
+      "complexity_tier": "Complex"
+    }
+  ]
+}

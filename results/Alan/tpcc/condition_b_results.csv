@@ -1,0 +1,493 @@
+query_id,recommended_indexes,llm_reasoning_text,execution_time_ms_after,improvement_vs_baseline
+Q1,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first"", ""c_id"", ""c_balance""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""new_order"", ""columns"": [""no_w_id"", ""no_d_id"", ""no_o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_number"", ""ol_i_id"", ""ol_supply_w_id"", ""ol_quantity"", ""ol_amount"", ""ol_delivery_d""]}]","## Index Recommendation Rationale
+
+### What was already covered (no new index needed)
+- **Q1 (warehouse)**, **Q2 (district)**: Already have PKs; the tables are tiny, seq scans cost ≤1.15 — no benefit from additional indexes.
+- **Q3 (customer PK)**, **Q4 (item PK)**, **Q5 (stock PK)**: PK lookups or very small seq scans already fast enough. The tables are small enough that the planner correctly prefers seq scans.
+
+### Index 1: `customer (c_w_id, c_d_id, c_last, c_first, c_id, c_balance)`
+- **Q6** benefit: Drops from 8.30 → **4.30** (index-only scan). The query filters on `(c_w_id, c_d_id, c_last)` and orders by `c_first`, then projects `c_id` and `c_balance`. Placing `c_last` in position 3 and `c_first` in position 4 lets the planner use the index for both the equality filter and the ORDER BY with no extra sort; including `c_id` and `c_balance` as covering columns eliminates all heap fetches.
+- **Q3**: Still uses the existing PK (cost 8.30); the new index does not interfere.
+- **Q12**: Customer is seq-scanned for the full warehouse (cost ~99); the new index doesn't help here, but doesn't hurt either.
+
+### Index 2: `orders (o_w_id, o_d_id, o_c_id, o_id)`
+- **Q7** benefit: Drops from no-index baseline to **2.69** (backward index scan + LIMIT 1). Filters on `(o_w_id, o_d_id, o_c_id)` and orders/limits by `o_id DESC` — the index column order directly supports this.
+- **Q12** benefit: The planner uses this as an index-only scan on `o_w_id=1` to feed the orders→order_line nested loop, contributing to the best plan available for Q12 (~9100).
+- **Q11**: Minor secondary benefit (the planner's existing order_line index is the main driver for Q11).
+
+### Index 3: `new_order (no_w_id, no_d_id, no_o_id)`
+- **Q9** benefit: Drops from baseline to **0.32** (index-only scan + LIMIT 1). Filters on `(no_w_id, no_d_id)` and orders `no_o_id ASC LIMIT 1`. The PK already covers this column order, so this index is effectively the PK — but the planner confirmed it enables an ultra-cheap index-only scan. (In practice the PK itself may already do this; having it explicit ensures the planner picks it up for the index-only path.)
+
+### Index 4: `order_line (ol_w_id, ol_d_id, ol_o_id, ol_number, ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d)`
+This is the most impactful index in the workload. It is a **fully covering** index leading on the natural join/filter key `(ol_w_id, ol_d_id, ol_o_id)` followed by every other projected or joined column:
+
+- **Q8**: Drops from **24.40 → 4.65** (index-only scan). Projects all 5 non-key columns; all are now in the index.
+- **Q10**: Drops to **4.69** (index-only aggregate on `ol_amount`).
+- **Q11**: Drops from **19.87 → 19.32** (index-only scan for the order_line side of the join; `ol_i_id` in the index allows the hash-join probe without heap access).
+- **Q12**: Enables memoized index-only lookups of `ol_amount` per order, contributing to the most efficient plan available for this cross-table aggregation.
+
+### Summary of cost improvements
+
+| Query | Before (est.) | After (est.) | Driver |
+|-------|-------------|-------------|--------|
+| Q6    | 8.30        | **4.30**    | customer covering index |
+| Q7    | ~24+        | **2.69**    | orders (w,d,c_id,id) index |
+| Q8    | 24.40       | **4.65**    | order_line covering index |
+| Q9    | ~24+        | **0.32**    | new_order PK-aligned index |
+| Q10   | seq-based   | **4.69**    | order_line covering index |
+| Q11   | 19.87       | **15–19**   | order_line covering index |
+| Q12   | 9196        | **~9100**   | orders + order_line indexes |
+
+Q12 remains expensive by nature (it must join all of warehouse 1's customers × orders × order_lines), but benefits from the other indexes making its sub-joins as efficient as possible. Q1–Q5 were already near-optimal via PKs/small tables and required no new indexes.
+",0.005,37.5
+Q2,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first"", ""c_id"", ""c_balance""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""new_order"", ""columns"": [""no_w_id"", ""no_d_id"", ""no_o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_number"", ""ol_i_id"", ""ol_supply_w_id"", ""ol_quantity"", ""ol_amount"", ""ol_delivery_d""]}]","## Index Recommendation Rationale
+
+### What was already covered (no new index needed)
+- **Q1 (warehouse)**, **Q2 (district)**: Already have PKs; the tables are tiny, seq scans cost ≤1.15 — no benefit from additional indexes.
+- **Q3 (customer PK)**, **Q4 (item PK)**, **Q5 (stock PK)**: PK lookups or very small seq scans already fast enough. The tables are small enough that the planner correctly prefers seq scans.
+
+### Index 1: `customer (c_w_id, c_d_id, c_last, c_first, c_id, c_balance)`
+- **Q6** benefit: Drops from 8.30 → **4.30** (index-only scan). The query filters on `(c_w_id, c_d_id, c_last)` and orders by `c_first`, then projects `c_id` and `c_balance`. Placing `c_last` in position 3 and `c_first` in position 4 lets the planner use the index for both the equality filter and the ORDER BY with no extra sort; including `c_id` and `c_balance` as covering columns eliminates all heap fetches.
+- **Q3**: Still uses the existing PK (cost 8.30); the new index does not interfere.
+- **Q12**: Customer is seq-scanned for the full warehouse (cost ~99); the new index doesn't help here, but doesn't hurt either.
+
+### Index 2: `orders (o_w_id, o_d_id, o_c_id, o_id)`
+- **Q7** benefit: Drops from no-index baseline to **2.69** (backward index scan + LIMIT 1). Filters on `(o_w_id, o_d_id, o_c_id)` and orders/limits by `o_id DESC` — the index column order directly supports this.
+- **Q12** benefit: The planner uses this as an index-only scan on `o_w_id=1` to feed the orders→order_line nested loop, contributing to the best plan available for Q12 (~9100).
+- **Q11**: Minor secondary benefit (the planner's existing order_line index is the main driver for Q11).
+
+### Index 3: `new_order (no_w_id, no_d_id, no_o_id)`
+- **Q9** benefit: Drops from baseline to **0.32** (index-only scan + LIMIT 1). Filters on `(no_w_id, no_d_id)` and orders `no_o_id ASC LIMIT 1`. The PK already covers this column order, so this index is effectively the PK — but the planner confirmed it enables an ultra-cheap index-only scan. (In practice the PK itself may already do this; having it explicit ensures the planner picks it up for the index-only path.)
+
+### Index 4: `order_line (ol_w_id, ol_d_id, ol_o_id, ol_number, ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d)`
+This is the most impactful index in the workload. It is a **fully covering** index leading on the natural join/filter key `(ol_w_id, ol_d_id, ol_o_id)` followed by every other projected or joined column:
+
+- **Q8**: Drops from **24.40 → 4.65** (index-only scan). Projects all 5 non-key columns; all are now in the index.
+- **Q10**: Drops to **4.69** (index-only aggregate on `ol_amount`).
+- **Q11**: Drops from **19.87 → 19.32** (index-only scan for the order_line side of the join; `ol_i_id` in the index allows the hash-join probe without heap access).
+- **Q12**: Enables memoized index-only lookups of `ol_amount` per order, contributing to the most efficient plan available for this cross-table aggregation.
+
+### Summary of cost improvements
+
+| Query | Before (est.) | After (est.) | Driver |
+|-------|-------------|-------------|--------|
+| Q6    | 8.30        | **4.30**    | customer covering index |
+| Q7    | ~24+        | **2.69**    | orders (w,d,c_id,id) index |
+| Q8    | 24.40       | **4.65**    | order_line covering index |
+| Q9    | ~24+        | **0.32**    | new_order PK-aligned index |
+| Q10   | seq-based   | **4.69**    | order_line covering index |
+| Q11   | 19.87       | **15–19**   | order_line covering index |
+| Q12   | 9196        | **~9100**   | orders + order_line indexes |
+
+Q12 remains expensive by nature (it must join all of warehouse 1's customers × orders × order_lines), but benefits from the other indexes making its sub-joins as efficient as possible. Q1–Q5 were already near-optimal via PKs/small tables and required no new indexes.
+",0.006,0.0
+Q3,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first"", ""c_id"", ""c_balance""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""new_order"", ""columns"": [""no_w_id"", ""no_d_id"", ""no_o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_number"", ""ol_i_id"", ""ol_supply_w_id"", ""ol_quantity"", ""ol_amount"", ""ol_delivery_d""]}]","## Index Recommendation Rationale
+
+### What was already covered (no new index needed)
+- **Q1 (warehouse)**, **Q2 (district)**: Already have PKs; the tables are tiny, seq scans cost ≤1.15 — no benefit from additional indexes.
+- **Q3 (customer PK)**, **Q4 (item PK)**, **Q5 (stock PK)**: PK lookups or very small seq scans already fast enough. The tables are small enough that the planner correctly prefers seq scans.
+
+### Index 1: `customer (c_w_id, c_d_id, c_last, c_first, c_id, c_balance)`
+- **Q6** benefit: Drops from 8.30 → **4.30** (index-only scan). The query filters on `(c_w_id, c_d_id, c_last)` and orders by `c_first`, then projects `c_id` and `c_balance`. Placing `c_last` in position 3 and `c_first` in position 4 lets the planner use the index for both the equality filter and the ORDER BY with no extra sort; including `c_id` and `c_balance` as covering columns eliminates all heap fetches.
+- **Q3**: Still uses the existing PK (cost 8.30); the new index does not interfere.
+- **Q12**: Customer is seq-scanned for the full warehouse (cost ~99); the new index doesn't help here, but doesn't hurt either.
+
+### Index 2: `orders (o_w_id, o_d_id, o_c_id, o_id)`
+- **Q7** benefit: Drops from no-index baseline to **2.69** (backward index scan + LIMIT 1). Filters on `(o_w_id, o_d_id, o_c_id)` and orders/limits by `o_id DESC` — the index column order directly supports this.
+- **Q12** benefit: The planner uses this as an index-only scan on `o_w_id=1` to feed the orders→order_line nested loop, contributing to the best plan available for Q12 (~9100).
+- **Q11**: Minor secondary benefit (the planner's existing order_line index is the main driver for Q11).
+
+### Index 3: `new_order (no_w_id, no_d_id, no_o_id)`
+- **Q9** benefit: Drops from baseline to **0.32** (index-only scan + LIMIT 1). Filters on `(no_w_id, no_d_id)` and orders `no_o_id ASC LIMIT 1`. The PK already covers this column order, so this index is effectively the PK — but the planner confirmed it enables an ultra-cheap index-only scan. (In practice the PK itself may already do this; having it explicit ensures the planner picks it up for the index-only path.)
+
+### Index 4: `order_line (ol_w_id, ol_d_id, ol_o_id, ol_number, ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d)`
+This is the most impactful index in the workload. It is a **fully covering** index leading on the natural join/filter key `(ol_w_id, ol_d_id, ol_o_id)` followed by every other projected or joined column:
+
+- **Q8**: Drops from **24.40 → 4.65** (index-only scan). Projects all 5 non-key columns; all are now in the index.
+- **Q10**: Drops to **4.69** (index-only aggregate on `ol_amount`).
+- **Q11**: Drops from **19.87 → 19.32** (index-only scan for the order_line side of the join; `ol_i_id` in the index allows the hash-join probe without heap access).
+- **Q12**: Enables memoized index-only lookups of `ol_amount` per order, contributing to the most efficient plan available for this cross-table aggregation.
+
+### Summary of cost improvements
+
+| Query | Before (est.) | After (est.) | Driver |
+|-------|-------------|-------------|--------|
+| Q6    | 8.30        | **4.30**    | customer covering index |
+| Q7    | ~24+        | **2.69**    | orders (w,d,c_id,id) index |
+| Q8    | 24.40       | **4.65**    | order_line covering index |
+| Q9    | ~24+        | **0.32**    | new_order PK-aligned index |
+| Q10   | seq-based   | **4.69**    | order_line covering index |
+| Q11   | 19.87       | **15–19**   | order_line covering index |
+| Q12   | 9196        | **~9100**   | orders + order_line indexes |
+
+Q12 remains expensive by nature (it must join all of warehouse 1's customers × orders × order_lines), but benefits from the other indexes making its sub-joins as efficient as possible. Q1–Q5 were already near-optimal via PKs/small tables and required no new indexes.
+",0.007,0.0
+Q4,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first"", ""c_id"", ""c_balance""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""new_order"", ""columns"": [""no_w_id"", ""no_d_id"", ""no_o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_number"", ""ol_i_id"", ""ol_supply_w_id"", ""ol_quantity"", ""ol_amount"", ""ol_delivery_d""]}]","## Index Recommendation Rationale
+
+### What was already covered (no new index needed)
+- **Q1 (warehouse)**, **Q2 (district)**: Already have PKs; the tables are tiny, seq scans cost ≤1.15 — no benefit from additional indexes.
+- **Q3 (customer PK)**, **Q4 (item PK)**, **Q5 (stock PK)**: PK lookups or very small seq scans already fast enough. The tables are small enough that the planner correctly prefers seq scans.
+
+### Index 1: `customer (c_w_id, c_d_id, c_last, c_first, c_id, c_balance)`
+- **Q6** benefit: Drops from 8.30 → **4.30** (index-only scan). The query filters on `(c_w_id, c_d_id, c_last)` and orders by `c_first`, then projects `c_id` and `c_balance`. Placing `c_last` in position 3 and `c_first` in position 4 lets the planner use the index for both the equality filter and the ORDER BY with no extra sort; including `c_id` and `c_balance` as covering columns eliminates all heap fetches.
+- **Q3**: Still uses the existing PK (cost 8.30); the new index does not interfere.
+- **Q12**: Customer is seq-scanned for the full warehouse (cost ~99); the new index doesn't help here, but doesn't hurt either.
+
+### Index 2: `orders (o_w_id, o_d_id, o_c_id, o_id)`
+- **Q7** benefit: Drops from no-index baseline to **2.69** (backward index scan + LIMIT 1). Filters on `(o_w_id, o_d_id, o_c_id)` and orders/limits by `o_id DESC` — the index column order directly supports this.
+- **Q12** benefit: The planner uses this as an index-only scan on `o_w_id=1` to feed the orders→order_line nested loop, contributing to the best plan available for Q12 (~9100).
+- **Q11**: Minor secondary benefit (the planner's existing order_line index is the main driver for Q11).
+
+### Index 3: `new_order (no_w_id, no_d_id, no_o_id)`
+- **Q9** benefit: Drops from baseline to **0.32** (index-only scan + LIMIT 1). Filters on `(no_w_id, no_d_id)` and orders `no_o_id ASC LIMIT 1`. The PK already covers this column order, so this index is effectively the PK — but the planner confirmed it enables an ultra-cheap index-only scan. (In practice the PK itself may already do this; having it explicit ensures the planner picks it up for the index-only path.)
+
+### Index 4: `order_line (ol_w_id, ol_d_id, ol_o_id, ol_number, ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d)`
+This is the most impactful index in the workload. It is a **fully covering** index leading on the natural join/filter key `(ol_w_id, ol_d_id, ol_o_id)` followed by every other projected or joined column:
+
+- **Q8**: Drops from **24.40 → 4.65** (index-only scan). Projects all 5 non-key columns; all are now in the index.
+- **Q10**: Drops to **4.69** (index-only aggregate on `ol_amount`).
+- **Q11**: Drops from **19.87 → 19.32** (index-only scan for the order_line side of the join; `ol_i_id` in the index allows the hash-join probe without heap access).
+- **Q12**: Enables memoized index-only lookups of `ol_amount` per order, contributing to the most efficient plan available for this cross-table aggregation.
+
+### Summary of cost improvements
+
+| Query | Before (est.) | After (est.) | Driver |
+|-------|-------------|-------------|--------|
+| Q6    | 8.30        | **4.30**    | customer covering index |
+| Q7    | ~24+        | **2.69**    | orders (w,d,c_id,id) index |
+| Q8    | 24.40       | **4.65**    | order_line covering index |
+| Q9    | ~24+        | **0.32**    | new_order PK-aligned index |
+| Q10   | seq-based   | **4.69**    | order_line covering index |
+| Q11   | 19.87       | **15–19**   | order_line covering index |
+| Q12   | 9196        | **~9100**   | orders + order_line indexes |
+
+Q12 remains expensive by nature (it must join all of warehouse 1's customers × orders × order_lines), but benefits from the other indexes making its sub-joins as efficient as possible. Q1–Q5 were already near-optimal via PKs/small tables and required no new indexes.
+",0.008,0.0
+Q5,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first"", ""c_id"", ""c_balance""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""new_order"", ""columns"": [""no_w_id"", ""no_d_id"", ""no_o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_number"", ""ol_i_id"", ""ol_supply_w_id"", ""ol_quantity"", ""ol_amount"", ""ol_delivery_d""]}]","## Index Recommendation Rationale
+
+### What was already covered (no new index needed)
+- **Q1 (warehouse)**, **Q2 (district)**: Already have PKs; the tables are tiny, seq scans cost ≤1.15 — no benefit from additional indexes.
+- **Q3 (customer PK)**, **Q4 (item PK)**, **Q5 (stock PK)**: PK lookups or very small seq scans already fast enough. The tables are small enough that the planner correctly prefers seq scans.
+
+### Index 1: `customer (c_w_id, c_d_id, c_last, c_first, c_id, c_balance)`
+- **Q6** benefit: Drops from 8.30 → **4.30** (index-only scan). The query filters on `(c_w_id, c_d_id, c_last)` and orders by `c_first`, then projects `c_id` and `c_balance`. Placing `c_last` in position 3 and `c_first` in position 4 lets the planner use the index for both the equality filter and the ORDER BY with no extra sort; including `c_id` and `c_balance` as covering columns eliminates all heap fetches.
+- **Q3**: Still uses the existing PK (cost 8.30); the new index does not interfere.
+- **Q12**: Customer is seq-scanned for the full warehouse (cost ~99); the new index doesn't help here, but doesn't hurt either.
+
+### Index 2: `orders (o_w_id, o_d_id, o_c_id, o_id)`
+- **Q7** benefit: Drops from no-index baseline to **2.69** (backward index scan + LIMIT 1). Filters on `(o_w_id, o_d_id, o_c_id)` and orders/limits by `o_id DESC` — the index column order directly supports this.
+- **Q12** benefit: The planner uses this as an index-only scan on `o_w_id=1` to feed the orders→order_line nested loop, contributing to the best plan available for Q12 (~9100).
+- **Q11**: Minor secondary benefit (the planner's existing order_line index is the main driver for Q11).
+
+### Index 3: `new_order (no_w_id, no_d_id, no_o_id)`
+- **Q9** benefit: Drops from baseline to **0.32** (index-only scan + LIMIT 1). Filters on `(no_w_id, no_d_id)` and orders `no_o_id ASC LIMIT 1`. The PK already covers this column order, so this index is effectively the PK — but the planner confirmed it enables an ultra-cheap index-only scan. (In practice the PK itself may already do this; having it explicit ensures the planner picks it up for the index-only path.)
+
+### Index 4: `order_line (ol_w_id, ol_d_id, ol_o_id, ol_number, ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d)`
+This is the most impactful index in the workload. It is a **fully covering** index leading on the natural join/filter key `(ol_w_id, ol_d_id, ol_o_id)` followed by every other projected or joined column:
+
+- **Q8**: Drops from **24.40 → 4.65** (index-only scan). Projects all 5 non-key columns; all are now in the index.
+- **Q10**: Drops to **4.69** (index-only aggregate on `ol_amount`).
+- **Q11**: Drops from **19.87 → 19.32** (index-only scan for the order_line side of the join; `ol_i_id` in the index allows the hash-join probe without heap access).
+- **Q12**: Enables memoized index-only lookups of `ol_amount` per order, contributing to the most efficient plan available for this cross-table aggregation.
+
+### Summary of cost improvements
+
+| Query | Before (est.) | After (est.) | Driver |
+|-------|-------------|-------------|--------|
+| Q6    | 8.30        | **4.30**    | customer covering index |
+| Q7    | ~24+        | **2.69**    | orders (w,d,c_id,id) index |
+| Q8    | 24.40       | **4.65**    | order_line covering index |
+| Q9    | ~24+        | **0.32**    | new_order PK-aligned index |
+| Q10   | seq-based   | **4.69**    | order_line covering index |
+| Q11   | 19.87       | **15–19**   | order_line covering index |
+| Q12   | 9196        | **~9100**   | orders + order_line indexes |
+
+Q12 remains expensive by nature (it must join all of warehouse 1's customers × orders × order_lines), but benefits from the other indexes making its sub-joins as efficient as possible. Q1–Q5 were already near-optimal via PKs/small tables and required no new indexes.
+",0.009,0.0
+Q6,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first"", ""c_id"", ""c_balance""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""new_order"", ""columns"": [""no_w_id"", ""no_d_id"", ""no_o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_number"", ""ol_i_id"", ""ol_supply_w_id"", ""ol_quantity"", ""ol_amount"", ""ol_delivery_d""]}]","## Index Recommendation Rationale
+
+### What was already covered (no new index needed)
+- **Q1 (warehouse)**, **Q2 (district)**: Already have PKs; the tables are tiny, seq scans cost ≤1.15 — no benefit from additional indexes.
+- **Q3 (customer PK)**, **Q4 (item PK)**, **Q5 (stock PK)**: PK lookups or very small seq scans already fast enough. The tables are small enough that the planner correctly prefers seq scans.
+
+### Index 1: `customer (c_w_id, c_d_id, c_last, c_first, c_id, c_balance)`
+- **Q6** benefit: Drops from 8.30 → **4.30** (index-only scan). The query filters on `(c_w_id, c_d_id, c_last)` and orders by `c_first`, then projects `c_id` and `c_balance`. Placing `c_last` in position 3 and `c_first` in position 4 lets the planner use the index for both the equality filter and the ORDER BY with no extra sort; including `c_id` and `c_balance` as covering columns eliminates all heap fetches.
+- **Q3**: Still uses the existing PK (cost 8.30); the new index does not interfere.
+- **Q12**: Customer is seq-scanned for the full warehouse (cost ~99); the new index doesn't help here, but doesn't hurt either.
+
+### Index 2: `orders (o_w_id, o_d_id, o_c_id, o_id)`
+- **Q7** benefit: Drops from no-index baseline to **2.69** (backward index scan + LIMIT 1). Filters on `(o_w_id, o_d_id, o_c_id)` and orders/limits by `o_id DESC` — the index column order directly supports this.
+- **Q12** benefit: The planner uses this as an index-only scan on `o_w_id=1` to feed the orders→order_line nested loop, contributing to the best plan available for Q12 (~9100).
+- **Q11**: Minor secondary benefit (the planner's existing order_line index is the main driver for Q11).
+
+### Index 3: `new_order (no_w_id, no_d_id, no_o_id)`
+- **Q9** benefit: Drops from baseline to **0.32** (index-only scan + LIMIT 1). Filters on `(no_w_id, no_d_id)` and orders `no_o_id ASC LIMIT 1`. The PK already covers this column order, so this index is effectively the PK — but the planner confirmed it enables an ultra-cheap index-only scan. (In practice the PK itself may already do this; having it explicit ensures the planner picks it up for the index-only path.)
+
+### Index 4: `order_line (ol_w_id, ol_d_id, ol_o_id, ol_number, ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d)`
+This is the most impactful index in the workload. It is a **fully covering** index leading on the natural join/filter key `(ol_w_id, ol_d_id, ol_o_id)` followed by every other projected or joined column:
+
+- **Q8**: Drops from **24.40 → 4.65** (index-only scan). Projects all 5 non-key columns; all are now in the index.
+- **Q10**: Drops to **4.69** (index-only aggregate on `ol_amount`).
+- **Q11**: Drops from **19.87 → 19.32** (index-only scan for the order_line side of the join; `ol_i_id` in the index allows the hash-join probe without heap access).
+- **Q12**: Enables memoized index-only lookups of `ol_amount` per order, contributing to the most efficient plan available for this cross-table aggregation.
+
+### Summary of cost improvements
+
+| Query | Before (est.) | After (est.) | Driver |
+|-------|-------------|-------------|--------|
+| Q6    | 8.30        | **4.30**    | customer covering index |
+| Q7    | ~24+        | **2.69**    | orders (w,d,c_id,id) index |
+| Q8    | 24.40       | **4.65**    | order_line covering index |
+| Q9    | ~24+        | **0.32**    | new_order PK-aligned index |
+| Q10   | seq-based   | **4.69**    | order_line covering index |
+| Q11   | 19.87       | **15–19**   | order_line covering index |
+| Q12   | 9196        | **~9100**   | orders + order_line indexes |
+
+Q12 remains expensive by nature (it must join all of warehouse 1's customers × orders × order_lines), but benefits from the other indexes making its sub-joins as efficient as possible. Q1–Q5 were already near-optimal via PKs/small tables and required no new indexes.
+",0.009,-12.5
+Q7,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first"", ""c_id"", ""c_balance""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""new_order"", ""columns"": [""no_w_id"", ""no_d_id"", ""no_o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_number"", ""ol_i_id"", ""ol_supply_w_id"", ""ol_quantity"", ""ol_amount"", ""ol_delivery_d""]}]","## Index Recommendation Rationale
+
+### What was already covered (no new index needed)
+- **Q1 (warehouse)**, **Q2 (district)**: Already have PKs; the tables are tiny, seq scans cost ≤1.15 — no benefit from additional indexes.
+- **Q3 (customer PK)**, **Q4 (item PK)**, **Q5 (stock PK)**: PK lookups or very small seq scans already fast enough. The tables are small enough that the planner correctly prefers seq scans.
+
+### Index 1: `customer (c_w_id, c_d_id, c_last, c_first, c_id, c_balance)`
+- **Q6** benefit: Drops from 8.30 → **4.30** (index-only scan). The query filters on `(c_w_id, c_d_id, c_last)` and orders by `c_first`, then projects `c_id` and `c_balance`. Placing `c_last` in position 3 and `c_first` in position 4 lets the planner use the index for both the equality filter and the ORDER BY with no extra sort; including `c_id` and `c_balance` as covering columns eliminates all heap fetches.
+- **Q3**: Still uses the existing PK (cost 8.30); the new index does not interfere.
+- **Q12**: Customer is seq-scanned for the full warehouse (cost ~99); the new index doesn't help here, but doesn't hurt either.
+
+### Index 2: `orders (o_w_id, o_d_id, o_c_id, o_id)`
+- **Q7** benefit: Drops from no-index baseline to **2.69** (backward index scan + LIMIT 1). Filters on `(o_w_id, o_d_id, o_c_id)` and orders/limits by `o_id DESC` — the index column order directly supports this.
+- **Q12** benefit: The planner uses this as an index-only scan on `o_w_id=1` to feed the orders→order_line nested loop, contributing to the best plan available for Q12 (~9100).
+- **Q11**: Minor secondary benefit (the planner's existing order_line index is the main driver for Q11).
+
+### Index 3: `new_order (no_w_id, no_d_id, no_o_id)`
+- **Q9** benefit: Drops from baseline to **0.32** (index-only scan + LIMIT 1). Filters on `(no_w_id, no_d_id)` and orders `no_o_id ASC LIMIT 1`. The PK already covers this column order, so this index is effectively the PK — but the planner confirmed it enables an ultra-cheap index-only scan. (In practice the PK itself may already do this; having it explicit ensures the planner picks it up for the index-only path.)
+
+### Index 4: `order_line (ol_w_id, ol_d_id, ol_o_id, ol_number, ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d)`
+This is the most impactful index in the workload. It is a **fully covering** index leading on the natural join/filter key `(ol_w_id, ol_d_id, ol_o_id)` followed by every other projected or joined column:
+
+- **Q8**: Drops from **24.40 → 4.65** (index-only scan). Projects all 5 non-key columns; all are now in the index.
+- **Q10**: Drops to **4.69** (index-only aggregate on `ol_amount`).
+- **Q11**: Drops from **19.87 → 19.32** (index-only scan for the order_line side of the join; `ol_i_id` in the index allows the hash-join probe without heap access).
+- **Q12**: Enables memoized index-only lookups of `ol_amount` per order, contributing to the most efficient plan available for this cross-table aggregation.
+
+### Summary of cost improvements
+
+| Query | Before (est.) | After (est.) | Driver |
+|-------|-------------|-------------|--------|
+| Q6    | 8.30        | **4.30**    | customer covering index |
+| Q7    | ~24+        | **2.69**    | orders (w,d,c_id,id) index |
+| Q8    | 24.40       | **4.65**    | order_line covering index |
+| Q9    | ~24+        | **0.32**    | new_order PK-aligned index |
+| Q10   | seq-based   | **4.69**    | order_line covering index |
+| Q11   | 19.87       | **15–19**   | order_line covering index |
+| Q12   | 9196        | **~9100**   | orders + order_line indexes |
+
+Q12 remains expensive by nature (it must join all of warehouse 1's customers × orders × order_lines), but benefits from the other indexes making its sub-joins as efficient as possible. Q1–Q5 were already near-optimal via PKs/small tables and required no new indexes.
+",0.008,-14.29
+Q8,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first"", ""c_id"", ""c_balance""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""new_order"", ""columns"": [""no_w_id"", ""no_d_id"", ""no_o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_number"", ""ol_i_id"", ""ol_supply_w_id"", ""ol_quantity"", ""ol_amount"", ""ol_delivery_d""]}]","## Index Recommendation Rationale
+
+### What was already covered (no new index needed)
+- **Q1 (warehouse)**, **Q2 (district)**: Already have PKs; the tables are tiny, seq scans cost ≤1.15 — no benefit from additional indexes.
+- **Q3 (customer PK)**, **Q4 (item PK)**, **Q5 (stock PK)**: PK lookups or very small seq scans already fast enough. The tables are small enough that the planner correctly prefers seq scans.
+
+### Index 1: `customer (c_w_id, c_d_id, c_last, c_first, c_id, c_balance)`
+- **Q6** benefit: Drops from 8.30 → **4.30** (index-only scan). The query filters on `(c_w_id, c_d_id, c_last)` and orders by `c_first`, then projects `c_id` and `c_balance`. Placing `c_last` in position 3 and `c_first` in position 4 lets the planner use the index for both the equality filter and the ORDER BY with no extra sort; including `c_id` and `c_balance` as covering columns eliminates all heap fetches.
+- **Q3**: Still uses the existing PK (cost 8.30); the new index does not interfere.
+- **Q12**: Customer is seq-scanned for the full warehouse (cost ~99); the new index doesn't help here, but doesn't hurt either.
+
+### Index 2: `orders (o_w_id, o_d_id, o_c_id, o_id)`
+- **Q7** benefit: Drops from no-index baseline to **2.69** (backward index scan + LIMIT 1). Filters on `(o_w_id, o_d_id, o_c_id)` and orders/limits by `o_id DESC` — the index column order directly supports this.
+- **Q12** benefit: The planner uses this as an index-only scan on `o_w_id=1` to feed the orders→order_line nested loop, contributing to the best plan available for Q12 (~9100).
+- **Q11**: Minor secondary benefit (the planner's existing order_line index is the main driver for Q11).
+
+### Index 3: `new_order (no_w_id, no_d_id, no_o_id)`
+- **Q9** benefit: Drops from baseline to **0.32** (index-only scan + LIMIT 1). Filters on `(no_w_id, no_d_id)` and orders `no_o_id ASC LIMIT 1`. The PK already covers this column order, so this index is effectively the PK — but the planner confirmed it enables an ultra-cheap index-only scan. (In practice the PK itself may already do this; having it explicit ensures the planner picks it up for the index-only path.)
+
+### Index 4: `order_line (ol_w_id, ol_d_id, ol_o_id, ol_number, ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d)`
+This is the most impactful index in the workload. It is a **fully covering** index leading on the natural join/filter key `(ol_w_id, ol_d_id, ol_o_id)` followed by every other projected or joined column:
+
+- **Q8**: Drops from **24.40 → 4.65** (index-only scan). Projects all 5 non-key columns; all are now in the index.
+- **Q10**: Drops to **4.69** (index-only aggregate on `ol_amount`).
+- **Q11**: Drops from **19.87 → 19.32** (index-only scan for the order_line side of the join; `ol_i_id` in the index allows the hash-join probe without heap access).
+- **Q12**: Enables memoized index-only lookups of `ol_amount` per order, contributing to the most efficient plan available for this cross-table aggregation.
+
+### Summary of cost improvements
+
+| Query | Before (est.) | After (est.) | Driver |
+|-------|-------------|-------------|--------|
+| Q6    | 8.30        | **4.30**    | customer covering index |
+| Q7    | ~24+        | **2.69**    | orders (w,d,c_id,id) index |
+| Q8    | 24.40       | **4.65**    | order_line covering index |
+| Q9    | ~24+        | **0.32**    | new_order PK-aligned index |
+| Q10   | seq-based   | **4.69**    | order_line covering index |
+| Q11   | 19.87       | **15–19**   | order_line covering index |
+| Q12   | 9196        | **~9100**   | orders + order_line indexes |
+
+Q12 remains expensive by nature (it must join all of warehouse 1's customers × orders × order_lines), but benefits from the other indexes making its sub-joins as efficient as possible. Q1–Q5 were already near-optimal via PKs/small tables and required no new indexes.
+",0.009,0.0
+Q9,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first"", ""c_id"", ""c_balance""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""new_order"", ""columns"": [""no_w_id"", ""no_d_id"", ""no_o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_number"", ""ol_i_id"", ""ol_supply_w_id"", ""ol_quantity"", ""ol_amount"", ""ol_delivery_d""]}]","## Index Recommendation Rationale
+
+### What was already covered (no new index needed)
+- **Q1 (warehouse)**, **Q2 (district)**: Already have PKs; the tables are tiny, seq scans cost ≤1.15 — no benefit from additional indexes.
+- **Q3 (customer PK)**, **Q4 (item PK)**, **Q5 (stock PK)**: PK lookups or very small seq scans already fast enough. The tables are small enough that the planner correctly prefers seq scans.
+
+### Index 1: `customer (c_w_id, c_d_id, c_last, c_first, c_id, c_balance)`
+- **Q6** benefit: Drops from 8.30 → **4.30** (index-only scan). The query filters on `(c_w_id, c_d_id, c_last)` and orders by `c_first`, then projects `c_id` and `c_balance`. Placing `c_last` in position 3 and `c_first` in position 4 lets the planner use the index for both the equality filter and the ORDER BY with no extra sort; including `c_id` and `c_balance` as covering columns eliminates all heap fetches.
+- **Q3**: Still uses the existing PK (cost 8.30); the new index does not interfere.
+- **Q12**: Customer is seq-scanned for the full warehouse (cost ~99); the new index doesn't help here, but doesn't hurt either.
+
+### Index 2: `orders (o_w_id, o_d_id, o_c_id, o_id)`
+- **Q7** benefit: Drops from no-index baseline to **2.69** (backward index scan + LIMIT 1). Filters on `(o_w_id, o_d_id, o_c_id)` and orders/limits by `o_id DESC` — the index column order directly supports this.
+- **Q12** benefit: The planner uses this as an index-only scan on `o_w_id=1` to feed the orders→order_line nested loop, contributing to the best plan available for Q12 (~9100).
+- **Q11**: Minor secondary benefit (the planner's existing order_line index is the main driver for Q11).
+
+### Index 3: `new_order (no_w_id, no_d_id, no_o_id)`
+- **Q9** benefit: Drops from baseline to **0.32** (index-only scan + LIMIT 1). Filters on `(no_w_id, no_d_id)` and orders `no_o_id ASC LIMIT 1`. The PK already covers this column order, so this index is effectively the PK — but the planner confirmed it enables an ultra-cheap index-only scan. (In practice the PK itself may already do this; having it explicit ensures the planner picks it up for the index-only path.)
+
+### Index 4: `order_line (ol_w_id, ol_d_id, ol_o_id, ol_number, ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d)`
+This is the most impactful index in the workload. It is a **fully covering** index leading on the natural join/filter key `(ol_w_id, ol_d_id, ol_o_id)` followed by every other projected or joined column:
+
+- **Q8**: Drops from **24.40 → 4.65** (index-only scan). Projects all 5 non-key columns; all are now in the index.
+- **Q10**: Drops to **4.69** (index-only aggregate on `ol_amount`).
+- **Q11**: Drops from **19.87 → 19.32** (index-only scan for the order_line side of the join; `ol_i_id` in the index allows the hash-join probe without heap access).
+- **Q12**: Enables memoized index-only lookups of `ol_amount` per order, contributing to the most efficient plan available for this cross-table aggregation.
+
+### Summary of cost improvements
+
+| Query | Before (est.) | After (est.) | Driver |
+|-------|-------------|-------------|--------|
+| Q6    | 8.30        | **4.30**    | customer covering index |
+| Q7    | ~24+        | **2.69**    | orders (w,d,c_id,id) index |
+| Q8    | 24.40       | **4.65**    | order_line covering index |
+| Q9    | ~24+        | **0.32**    | new_order PK-aligned index |
+| Q10   | seq-based   | **4.69**    | order_line covering index |
+| Q11   | 19.87       | **15–19**   | order_line covering index |
+| Q12   | 9196        | **~9100**   | orders + order_line indexes |
+
+Q12 remains expensive by nature (it must join all of warehouse 1's customers × orders × order_lines), but benefits from the other indexes making its sub-joins as efficient as possible. Q1–Q5 were already near-optimal via PKs/small tables and required no new indexes.
+",0.009,0.0
+Q10,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first"", ""c_id"", ""c_balance""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""new_order"", ""columns"": [""no_w_id"", ""no_d_id"", ""no_o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_number"", ""ol_i_id"", ""ol_supply_w_id"", ""ol_quantity"", ""ol_amount"", ""ol_delivery_d""]}]","## Index Recommendation Rationale
+
+### What was already covered (no new index needed)
+- **Q1 (warehouse)**, **Q2 (district)**: Already have PKs; the tables are tiny, seq scans cost ≤1.15 — no benefit from additional indexes.
+- **Q3 (customer PK)**, **Q4 (item PK)**, **Q5 (stock PK)**: PK lookups or very small seq scans already fast enough. The tables are small enough that the planner correctly prefers seq scans.
+
+### Index 1: `customer (c_w_id, c_d_id, c_last, c_first, c_id, c_balance)`
+- **Q6** benefit: Drops from 8.30 → **4.30** (index-only scan). The query filters on `(c_w_id, c_d_id, c_last)` and orders by `c_first`, then projects `c_id` and `c_balance`. Placing `c_last` in position 3 and `c_first` in position 4 lets the planner use the index for both the equality filter and the ORDER BY with no extra sort; including `c_id` and `c_balance` as covering columns eliminates all heap fetches.
+- **Q3**: Still uses the existing PK (cost 8.30); the new index does not interfere.
+- **Q12**: Customer is seq-scanned for the full warehouse (cost ~99); the new index doesn't help here, but doesn't hurt either.
+
+### Index 2: `orders (o_w_id, o_d_id, o_c_id, o_id)`
+- **Q7** benefit: Drops from no-index baseline to **2.69** (backward index scan + LIMIT 1). Filters on `(o_w_id, o_d_id, o_c_id)` and orders/limits by `o_id DESC` — the index column order directly supports this.
+- **Q12** benefit: The planner uses this as an index-only scan on `o_w_id=1` to feed the orders→order_line nested loop, contributing to the best plan available for Q12 (~9100).
+- **Q11**: Minor secondary benefit (the planner's existing order_line index is the main driver for Q11).
+
+### Index 3: `new_order (no_w_id, no_d_id, no_o_id)`
+- **Q9** benefit: Drops from baseline to **0.32** (index-only scan + LIMIT 1). Filters on `(no_w_id, no_d_id)` and orders `no_o_id ASC LIMIT 1`. The PK already covers this column order, so this index is effectively the PK — but the planner confirmed it enables an ultra-cheap index-only scan. (In practice the PK itself may already do this; having it explicit ensures the planner picks it up for the index-only path.)
+
+### Index 4: `order_line (ol_w_id, ol_d_id, ol_o_id, ol_number, ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d)`
+This is the most impactful index in the workload. It is a **fully covering** index leading on the natural join/filter key `(ol_w_id, ol_d_id, ol_o_id)` followed by every other projected or joined column:
+
+- **Q8**: Drops from **24.40 → 4.65** (index-only scan). Projects all 5 non-key columns; all are now in the index.
+- **Q10**: Drops to **4.69** (index-only aggregate on `ol_amount`).
+- **Q11**: Drops from **19.87 → 19.32** (index-only scan for the order_line side of the join; `ol_i_id` in the index allows the hash-join probe without heap access).
+- **Q12**: Enables memoized index-only lookups of `ol_amount` per order, contributing to the most efficient plan available for this cross-table aggregation.
+
+### Summary of cost improvements
+
+| Query | Before (est.) | After (est.) | Driver |
+|-------|-------------|-------------|--------|
+| Q6    | 8.30        | **4.30**    | customer covering index |
+| Q7    | ~24+        | **2.69**    | orders (w,d,c_id,id) index |
+| Q8    | 24.40       | **4.65**    | order_line covering index |
+| Q9    | ~24+        | **0.32**    | new_order PK-aligned index |
+| Q10   | seq-based   | **4.69**    | order_line covering index |
+| Q11   | 19.87       | **15–19**   | order_line covering index |
+| Q12   | 9196        | **~9100**   | orders + order_line indexes |
+
+Q12 remains expensive by nature (it must join all of warehouse 1's customers × orders × order_lines), but benefits from the other indexes making its sub-joins as efficient as possible. Q1–Q5 were already near-optimal via PKs/small tables and required no new indexes.
+",0.014,-16.67
+Q11,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first"", ""c_id"", ""c_balance""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""new_order"", ""columns"": [""no_w_id"", ""no_d_id"", ""no_o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_number"", ""ol_i_id"", ""ol_supply_w_id"", ""ol_quantity"", ""ol_amount"", ""ol_delivery_d""]}]","## Index Recommendation Rationale
+
+### What was already covered (no new index needed)
+- **Q1 (warehouse)**, **Q2 (district)**: Already have PKs; the tables are tiny, seq scans cost ≤1.15 — no benefit from additional indexes.
+- **Q3 (customer PK)**, **Q4 (item PK)**, **Q5 (stock PK)**: PK lookups or very small seq scans already fast enough. The tables are small enough that the planner correctly prefers seq scans.
+
+### Index 1: `customer (c_w_id, c_d_id, c_last, c_first, c_id, c_balance)`
+- **Q6** benefit: Drops from 8.30 → **4.30** (index-only scan). The query filters on `(c_w_id, c_d_id, c_last)` and orders by `c_first`, then projects `c_id` and `c_balance`. Placing `c_last` in position 3 and `c_first` in position 4 lets the planner use the index for both the equality filter and the ORDER BY with no extra sort; including `c_id` and `c_balance` as covering columns eliminates all heap fetches.
+- **Q3**: Still uses the existing PK (cost 8.30); the new index does not interfere.
+- **Q12**: Customer is seq-scanned for the full warehouse (cost ~99); the new index doesn't help here, but doesn't hurt either.
+
+### Index 2: `orders (o_w_id, o_d_id, o_c_id, o_id)`
+- **Q7** benefit: Drops from no-index baseline to **2.69** (backward index scan + LIMIT 1). Filters on `(o_w_id, o_d_id, o_c_id)` and orders/limits by `o_id DESC` — the index column order directly supports this.
+- **Q12** benefit: The planner uses this as an index-only scan on `o_w_id=1` to feed the orders→order_line nested loop, contributing to the best plan available for Q12 (~9100).
+- **Q11**: Minor secondary benefit (the planner's existing order_line index is the main driver for Q11).
+
+### Index 3: `new_order (no_w_id, no_d_id, no_o_id)`
+- **Q9** benefit: Drops from baseline to **0.32** (index-only scan + LIMIT 1). Filters on `(no_w_id, no_d_id)` and orders `no_o_id ASC LIMIT 1`. The PK already covers this column order, so this index is effectively the PK — but the planner confirmed it enables an ultra-cheap index-only scan. (In practice the PK itself may already do this; having it explicit ensures the planner picks it up for the index-only path.)
+
+### Index 4: `order_line (ol_w_id, ol_d_id, ol_o_id, ol_number, ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d)`
+This is the most impactful index in the workload. It is a **fully covering** index leading on the natural join/filter key `(ol_w_id, ol_d_id, ol_o_id)` followed by every other projected or joined column:
+
+- **Q8**: Drops from **24.40 → 4.65** (index-only scan). Projects all 5 non-key columns; all are now in the index.
+- **Q10**: Drops to **4.69** (index-only aggregate on `ol_amount`).
+- **Q11**: Drops from **19.87 → 19.32** (index-only scan for the order_line side of the join; `ol_i_id` in the index allows the hash-join probe without heap access).
+- **Q12**: Enables memoized index-only lookups of `ol_amount` per order, contributing to the most efficient plan available for this cross-table aggregation.
+
+### Summary of cost improvements
+
+| Query | Before (est.) | After (est.) | Driver |
+|-------|-------------|-------------|--------|
+| Q6    | 8.30        | **4.30**    | customer covering index |
+| Q7    | ~24+        | **2.69**    | orders (w,d,c_id,id) index |
+| Q8    | 24.40       | **4.65**    | order_line covering index |
+| Q9    | ~24+        | **0.32**    | new_order PK-aligned index |
+| Q10   | seq-based   | **4.69**    | order_line covering index |
+| Q11   | 19.87       | **15–19**   | order_line covering index |
+| Q12   | 9196        | **~9100**   | orders + order_line indexes |
+
+Q12 remains expensive by nature (it must join all of warehouse 1's customers × orders × order_lines), but benefits from the other indexes making its sub-joins as efficient as possible. Q1–Q5 were already near-optimal via PKs/small tables and required no new indexes.
+",0.048,-2.13
+Q12,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first"", ""c_id"", ""c_balance""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""new_order"", ""columns"": [""no_w_id"", ""no_d_id"", ""no_o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_number"", ""ol_i_id"", ""ol_supply_w_id"", ""ol_quantity"", ""ol_amount"", ""ol_delivery_d""]}]","## Index Recommendation Rationale
+
+### What was already covered (no new index needed)
+- **Q1 (warehouse)**, **Q2 (district)**: Already have PKs; the tables are tiny, seq scans cost ≤1.15 — no benefit from additional indexes.
+- **Q3 (customer PK)**, **Q4 (item PK)**, **Q5 (stock PK)**: PK lookups or very small seq scans already fast enough. The tables are small enough that the planner correctly prefers seq scans.
+
+### Index 1: `customer (c_w_id, c_d_id, c_last, c_first, c_id, c_balance)`
+- **Q6** benefit: Drops from 8.30 → **4.30** (index-only scan). The query filters on `(c_w_id, c_d_id, c_last)` and orders by `c_first`, then projects `c_id` and `c_balance`. Placing `c_last` in position 3 and `c_first` in position 4 lets the planner use the index for both the equality filter and the ORDER BY with no extra sort; including `c_id` and `c_balance` as covering columns eliminates all heap fetches.
+- **Q3**: Still uses the existing PK (cost 8.30); the new index does not interfere.
+- **Q12**: Customer is seq-scanned for the full warehouse (cost ~99); the new index doesn't help here, but doesn't hurt either.
+
+### Index 2: `orders (o_w_id, o_d_id, o_c_id, o_id)`
+- **Q7** benefit: Drops from no-index baseline to **2.69** (backward index scan + LIMIT 1). Filters on `(o_w_id, o_d_id, o_c_id)` and orders/limits by `o_id DESC` — the index column order directly supports this.
+- **Q12** benefit: The planner uses this as an index-only scan on `o_w_id=1` to feed the orders→order_line nested loop, contributing to the best plan available for Q12 (~9100).
+- **Q11**: Minor secondary benefit (the planner's existing order_line index is the main driver for Q11).
+
+### Index 3: `new_order (no_w_id, no_d_id, no_o_id)`
+- **Q9** benefit: Drops from baseline to **0.32** (index-only scan + LIMIT 1). Filters on `(no_w_id, no_d_id)` and orders `no_o_id ASC LIMIT 1`. The PK already covers this column order, so this index is effectively the PK — but the planner confirmed it enables an ultra-cheap index-only scan. (In practice the PK itself may already do this; having it explicit ensures the planner picks it up for the index-only path.)
+
+### Index 4: `order_line (ol_w_id, ol_d_id, ol_o_id, ol_number, ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d)`
+This is the most impactful index in the workload. It is a **fully covering** index leading on the natural join/filter key `(ol_w_id, ol_d_id, ol_o_id)` followed by every other projected or joined column:
+
+- **Q8**: Drops from **24.40 → 4.65** (index-only scan). Projects all 5 non-key columns; all are now in the index.
+- **Q10**: Drops to **4.69** (index-only aggregate on `ol_amount`).
+- **Q11**: Drops from **19.87 → 19.32** (index-only scan for the order_line side of the join; `ol_i_id` in the index allows the hash-join probe without heap access).
+- **Q12**: Enables memoized index-only lookups of `ol_amount` per order, contributing to the most efficient plan available for this cross-table aggregation.
+
+### Summary of cost improvements
+
+| Query | Before (est.) | After (est.) | Driver |
+|-------|-------------|-------------|--------|
+| Q6    | 8.30        | **4.30**    | customer covering index |
+| Q7    | ~24+        | **2.69**    | orders (w,d,c_id,id) index |
+| Q8    | 24.40       | **4.65**    | order_line covering index |
+| Q9    | ~24+        | **0.32**    | new_order PK-aligned index |
+| Q10   | seq-based   | **4.69**    | order_line covering index |
+| Q11   | 19.87       | **15–19**   | order_line covering index |
+| Q12   | 9196        | **~9100**   | orders + order_line indexes |
+
+Q12 remains expensive by nature (it must join all of warehouse 1's customers × orders × order_lines), but benefits from the other indexes making its sub-joins as efficient as possible. Q1–Q5 were already near-optimal via PKs/small tables and required no new indexes.
+",111.385,-14.58

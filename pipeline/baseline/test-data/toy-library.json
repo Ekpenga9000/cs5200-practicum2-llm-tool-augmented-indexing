@@ -1,0 +1,21 @@
+{
+  "schema_name": "toy_library",
+  "schema_ddl": "CREATE TABLE authors (id INT PRIMARY KEY, name TEXT NOT NULL); CREATE TABLE books (id INT PRIMARY KEY, title TEXT NOT NULL, author_id INT NOT NULL REFERENCES authors(id)); CREATE TABLE loans (id INT PRIMARY KEY, book_id INT NOT NULL REFERENCES books(id), loan_date DATE NOT NULL);",
+  "workload": [
+    {
+      "query_id": "Q1",
+      "query_text": "SELECT * FROM books WHERE author_id = 1",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q2",
+      "query_text": "SELECT a.name, COUNT(*) FROM authors a JOIN books b ON b.author_id = a.id GROUP BY a.name ORDER BY COUNT(*) DESC",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q3",
+      "query_text": "SELECT b.title, COUNT(l.id) AS loan_count FROM books b LEFT JOIN loans l ON l.book_id = b.id GROUP BY b.title HAVING COUNT(l.id) > 0 ORDER BY loan_count DESC",
+      "complexity_tier": "Complex"
+    }
+  ]
+}
