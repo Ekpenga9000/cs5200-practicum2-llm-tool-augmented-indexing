@@ -13,7 +13,6 @@ This module:
 import os
 import argparse
 import csv
-import getpass
 import json
 from pathlib import Path
 from typing import Any
@@ -127,9 +126,6 @@ def measure(
 
     if not database_name:
         raise ValueError("Schema/workload JSON is missing 'schema_name'.")
-
-    if password is None:
-        password = getpass.getpass("Postgres password for user 'postgres': ")
 
     connection = psycopg2.connect(
         dbname=database_name,
