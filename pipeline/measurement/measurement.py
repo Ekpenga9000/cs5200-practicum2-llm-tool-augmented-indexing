@@ -10,7 +10,7 @@ This module:
 6. Compares the new execution times against baseline.
 7. Writes the standardized results CSV.
 """
-
+import os
 import argparse
 import csv
 import getpass
@@ -133,11 +133,11 @@ def measure(
 
     connection = psycopg2.connect(
         dbname=database_name,
-        user="postgres",
-        password=password,
-        host="localhost",
-        port=5432,
-    )
+        user=os.getenv("PGUSER", "postgres"),
+        password=os.getenv("PGPASSWORD"),
+        host=os.getenv("PGHOST", "localhost"),
+        port=int(os.getenv("PGPORT", "5432")),
+)
     connection.autocommit = True
 
     cursor = connection.cursor()
