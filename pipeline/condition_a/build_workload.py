@@ -2,13 +2,19 @@
 """
 Build workload.csv from Join Order Benchmark (JOB) .sql query files.
 
+Complexity tiers (Simple/Medium/Complex) are assigned based on table
+count, using thresholds computed from the ACTUAL distribution of table
+counts across this query set (tertiles), rather than a fixed guess.
+JOB queries commonly join far more tables than typical textbook
+examples, so a hardcoded cutoff collapses everything into one tier.
+
 Usage:
     python build_workload.py <job_benchmark_dir> <output_csv_path>
+    python build_workload.py <job_benchmark_dir> --diagnose
 """
 
 import csv
 import glob
-import math
 import os
 import re
 import sys
@@ -16,7 +22,7 @@ import sys
 SKIP_FILES = {"schema.sql", "fkindexes.sql", "schematext.sql"}
 
 
-def extract_query_features(sql_text: str) -> dict:
+def count_tables(sql_text: str) -> int:
     sql_lower = sql_text.lower()
 
     from_match = re.search(r"from\s+(.*?)\s+where", sql_lower, re.S)
@@ -28,108 +34,88 @@ def extract_query_features(sql_text: str) -> dict:
         num_tables = 0
 
     num_tables += len(re.findall(r"\bjoin\b", sql_lower))
-
-    has_aggregation = bool(
-        re.search(r"\bgroup\s+by\b", sql_lower)
-        or re.search(r"\b(count|sum|avg|min|max)\s*\(", sql_lower)
-    )
-    has_subquery = "(select" in sql_lower  # case-insensitive via sql_lower
-
-    return {
-        "num_tables": num_tables,
-        "has_aggregation": has_aggregation,
-        "has_subquery": has_subquery,
-    }
+    return num_tables
 
 
-def complexity_score(features: dict) -> int:
-    # Deterministic weighted score
-    return (
-        features["num_tables"]
-        + int(features["has_aggregation"])
-        + int(features["has_subquery"])
-    )
-
-
-def percentile_nearest_rank(values: list[int], p: float) -> int:
-    # Deterministic percentile: nearest-rank method
-    if not values:
-        return 0
-    sorted_vals = sorted(values)
-    rank = max(1, math.ceil(p * len(sorted_vals)))
-    return sorted_vals[rank - 1]
-
-
-def derive_complexity_cutoffs(scores: list[int]) -> tuple[int, int]:
-    simple_max = percentile_nearest_rank(scores, 0.33)
-    complex_min = percentile_nearest_rank(scores, 0.66)
-    # Keep a valid middle bucket if percentiles collapse
-    if complex_min <= simple_max:
-        complex_min = simple_max + 1
-    return simple_max, complex_min
-
-
-def classify_complexity(score: int, simple_max: int, complex_min: int) -> str:
-    if score <= simple_max:
-        return "Simple"
-    if score >= complex_min:
-        return "Complex"
-    return "Medium"
-
-
-def build_workload(job_dir: str, output_path: str) -> None:
+def load_queries(job_dir: str):
     sql_files = sorted(glob.glob(os.path.join(job_dir, "*.sql")))
-    staged = []
-
+    queries = []
     for filepath in sql_files:
         filename = os.path.basename(filepath)
         if filename in SKIP_FILES:
             continue
-
         with open(filepath, "r", encoding="utf-8", errors="replace") as f:
             sql_text = f.read().strip()
-
         if not sql_text:
             continue
-
         query_id = os.path.splitext(filename)[0]
-        query_text = " ".join(sql_text.split())
-        features = extract_query_features(sql_text)
-        score = complexity_score(features)
+        queries.append((query_id, sql_text))
+    return queries
 
-        staged.append(
-            {
-                "query_id": query_id,
-                "query_text": query_text,
-                "score": score,
-            }
-        )
 
-    scores = [r["score"] for r in staged]
+def compute_tertile_cutoffs(table_counts):
+    """
+    Splits into three roughly equal-sized groups by table count.
+    Returns (low_cut, high_cut): Simple <= low_cut, Medium <= high_cut,
+    else Complex.
+    """
+    sorted_counts = sorted(table_counts)
+    n = len(sorted_counts)
+    low_idx = n // 3
+    high_idx = (2 * n) // 3
+    low_cut = sorted_counts[low_idx]
+    high_cut = sorted_counts[high_idx]
+    return low_cut, high_cut
 
-    # Sanity check: verify the score distribution has actual spread
-    # before trusting the derived cutoffs.
-    if scores:
-        print(
-            f"Score distribution: min={min(scores)}, max={max(scores)}, "
-            f"median={sorted(scores)[len(scores)//2]}"
-        )
-    else:
-        print("Score distribution: no queries found")
 
-    simple_max, complex_min = derive_complexity_cutoffs(scores)
+def diagnose(job_dir: str) -> None:
+    queries = load_queries(job_dir)
+    counts = [(qid, count_tables(sql)) for qid, sql in queries]
+    counts_sorted = sorted(counts, key=lambda x: x[1])
+
+    print(f"{len(queries)} queries loaded.\n")
+    print("Table count distribution (sorted):")
+    for qid, n in counts_sorted:
+        print(f"  {qid:>6}: {n} tables")
+
+    table_counts = [n for _, n in counts]
+    low_cut, high_cut = compute_tertile_cutoffs(table_counts)
+    print(f"\nSuggested tertile cutoffs: Simple <= {low_cut}, "
+          f"Medium <= {high_cut}, Complex > {high_cut}")
+
+    tier_counts = {"Simple": 0, "Medium": 0, "Complex": 0}
+    for _, n in counts:
+        if n <= low_cut:
+            tier_counts["Simple"] += 1
+        elif n <= high_cut:
+            tier_counts["Medium"] += 1
+        else:
+            tier_counts["Complex"] += 1
+    print(f"Resulting split: Simple={tier_counts['Simple']}, "
+          f"Medium={tier_counts['Medium']}, Complex={tier_counts['Complex']}")
+
+
+def build_workload(job_dir: str, output_path: str) -> None:
+    queries = load_queries(job_dir)
+    table_counts = [count_tables(sql) for _, sql in queries]
+    low_cut, high_cut = compute_tertile_cutoffs(table_counts)
 
     rows = []
-    for r in staged:
-        rows.append(
-            {
-                "query_id": r["query_id"],
-                "query_text": r["query_text"],
-                "complexity_tier": classify_complexity(
-                    r["score"], simple_max, complex_min
-                ),
-            }
-        )
+    for query_id, sql_text in queries:
+        num_tables = count_tables(sql_text)
+        if num_tables <= low_cut:
+            tier = "Simple"
+        elif num_tables <= high_cut:
+            tier = "Medium"
+        else:
+            tier = "Complex"
+
+        query_text = " ".join(sql_text.split())
+        rows.append({
+            "query_id": query_id,
+            "query_text": query_text,
+            "complexity_tier": tier,
+        })
 
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(
@@ -143,17 +129,20 @@ def build_workload(job_dir: str, output_path: str) -> None:
         tier_counts[row["complexity_tier"]] += 1
 
     print(f"Wrote {len(rows)} queries to {output_path}")
-    print(f"Cutoffs (score): Simple <= {simple_max}, Complex >= {complex_min}")
+    print(f"Cutoffs used: Simple <= {low_cut} tables, "
+          f"Medium <= {high_cut} tables, Complex > {high_cut} tables")
     print(f"  Simple:  {tier_counts['Simple']}")
     print(f"  Medium:  {tier_counts['Medium']}")
     print(f"  Complex: {tier_counts['Complex']}")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) == 3 and sys.argv[2] == "--diagnose":
+        diagnose(os.path.expanduser(sys.argv[1]))
+    elif len(sys.argv) == 3:
+        job_dir = os.path.expanduser(sys.argv[1])
+        output_path = os.path.expanduser(sys.argv[2])
+        build_workload(job_dir, output_path)
+    else:
         print(__doc__)
         sys.exit(1)
-
-    job_dir = os.path.expanduser(sys.argv[1])
-    output_path = os.path.expanduser(sys.argv[2])
-    build_workload(job_dir, output_path)
