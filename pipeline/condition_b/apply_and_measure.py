@@ -17,6 +17,7 @@ Usage:
         condition_b_recommendation.json baseline_results.csv condition_b_results.csv
 """
 
+import os
 import sys
 import json
 import csv
@@ -111,12 +112,14 @@ def run(schema_workload_path, recommendation_path, baseline_csv_path, out_csv_pa
         writer.writeheader()
         writer.writerows(rows)
 
-    # tool_call_log as its own linked file, per team's format decision
-    with open("tool_call_log.json", "w", encoding="utf-8") as f:
+    # tool_call_log as its own linked file, per team's format decision --
+    # written next to the output CSV, not the current working directory.
+    log_path = os.path.join(os.path.dirname(out_csv_path) or ".", "tool_call_log.json")
+    with open(log_path, "w", encoding="utf-8") as f:
         json.dump(recommendation["tool_call_log"], f, indent=2)
 
     print(f"\nWrote {len(rows)} rows to {out_csv_path}")
-    print("Wrote tool_call_log.json")
+    print(f"Wrote {log_path}")
     print("\nBefore -> After (ms):")
     for r in rows:
         before = baseline_times.get(r["query_id"])
