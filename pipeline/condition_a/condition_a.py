@@ -23,15 +23,26 @@ def extract_schema_columns(schema_ddl: str) -> dict[str, set[str]]:
 def validate_index_stmt(stmt: str, schema_cols: dict[str, set[str]]) -> bool:
     """
     Returns True only if the CREATE INDEX statement references a real
-    table and real columns from the schema. Anything else is treated
-    as a hallucination.
+    table and real columns from the schema. Handles optional Postgres
+    operator classes (e.g. "note text_pattern_ops") by validating just
+    the column name portion of each column entry.
     """
     m = re.match(r'CREATE INDEX \w+ ON (\w+)\((.*?)\)', stmt.strip())
     if not m:
         return False
     table, cols = m.groups()
-    col_names = {c.strip() for c in cols.split(",")}
-    return table in schema_cols and col_names.issubset(schema_cols[table])
+    if table not in schema_cols:
+        return False
+
+    for entry in cols.split(","):
+        entry = entry.strip()
+        # First whitespace-separated token is the column name;
+        # anything after it (e.g. "text_pattern_ops") is an operator class.
+        col_name = entry.split()[0] if entry.split() else entry
+        if col_name not in schema_cols[table]:
+            return False
+
+    return True
 
 
 def filter_hallucinated_indexes(indexes: list[str], schema_cols: dict[str, set[str]]) -> tuple[list[str], list[str]]:
