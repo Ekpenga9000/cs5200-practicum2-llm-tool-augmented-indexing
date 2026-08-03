@@ -12,8 +12,7 @@ No DB extension needed -- uses real temporary indexes (see real_index_estimator.
 
 import sys
 import json
-import getpass
-
+import os
 import psycopg2
 import anthropic
 
@@ -34,9 +33,13 @@ def main():
     with open(schema_workload_path) as f:
         schema_workload = json.load(f)
 
-    pw = getpass.getpass("Postgres password for user 'postgres': ")
-    conn = psycopg2.connect(dbname=schema_workload["schema_name"], user="postgres",
-                             password=pw, host="localhost", port=5432)
+    conn = psycopg2.connect(
+        dbname=schema_workload["schema_name"],
+        user=os.getenv("PGUSER", "postgres"),
+        password=os.getenv("PGPASSWORD"),
+        host=os.getenv("PGHOST", "localhost"),
+        port=int(os.getenv("PGPORT", "5432")),
+    )
     estimator = RealIndexCostEstimator(conn)
     client = anthropic.Anthropic()
 
