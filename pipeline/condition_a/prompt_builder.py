@@ -28,7 +28,7 @@ format:
     {{
       "query_id": "q1",
       "recommended_indexes": ["CREATE INDEX ... ON ...(...);"],
-      "reasoning": "short explanation of why these indexes help this query"
+      "reasoning": "one concise sentence (under 20 words) explaining why these indexes help this query"
     }}
   ]
 }}
