@@ -98,7 +98,7 @@ class ToolCallLogger:
             "step": step,
             "candidate_index": candidate_index,
             "estimated_cost": estimated_cost,
-            "decision": decision,   # "proposed" | "accepted"
+            "decision": decision,   # "proposed" | "accepted" | "rejected"
             "note": note,
             "timestamp": time.time(),
         })
@@ -107,7 +107,7 @@ class ToolCallLogger:
         return json.dumps(self.entries, indent=2)
 
 
-def run_condition_b(schema_workload: dict, cost_estimator, client) -> dict:
+def run_condition_b(schema_workload: dict, cost_estimator, client, max_iterations: int = 40) -> dict:
     """
     schema_workload: SchemaWorkload dict (see module docstring)
     cost_estimator: any object exposing
@@ -132,9 +132,15 @@ def run_condition_b(schema_workload: dict, cost_estimator, client) -> dict:
 
     messages = [{"role": "user", "content": user_prompt}]
     step = 0
+    iterations = 0
     final_recommendation = None
 
     while final_recommendation is None:
+        iterations += 1
+        if iterations > max_iterations:
+            raise RuntimeError(
+                f"LLM did not call finalize_recommendation within {max_iterations} iterations"
+            )
         response = client.messages.create(
             model=MODEL,
             max_tokens=2000,
@@ -152,7 +158,21 @@ def run_condition_b(schema_workload: dict, cost_estimator, client) -> dict:
             step += 1
             if block.name == "estimate_index_cost":
                 candidate = {"table": block.input["table"], "columns": block.input["columns"]}
-                query_text = queries_by_id[block.input["query_id"]]
+                query_id = block.input["query_id"]
+                query_text = queries_by_id.get(query_id)
+                if query_text is None:
+                    # Don't crash the whole run on a bad query_id -- hand the
+                    # error back so the model can retry with a valid one.
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps({
+                            "error": f"unknown query_id '{query_id}'; "
+                                     f"valid ids: {list(queries_by_id)}"
+                        }),
+                        "is_error": True,
+                    })
+                    continue
                 result = cost_estimator.estimate_cost(candidate, query_text)
 
                 logger.log(step, candidate, result["estimated_cost"], "proposed",
@@ -165,8 +185,22 @@ def run_condition_b(schema_workload: dict, cost_estimator, client) -> dict:
                 })
 
             elif block.name == "finalize_recommendation":
+                accepted_keys = {
+                    (idx["table"], tuple(idx["columns"]))
+                    for idx in block.input["recommended_indexes"]
+                }
                 for idx in block.input["recommended_indexes"]:
                     logger.log(step, idx, None, "accepted", note="final recommendation")
+                # Spec 6.2: the log must record whether each candidate was
+                # accepted OR rejected. Every distinct candidate the LLM tried
+                # via estimate_index_cost but did not finalize is a rejection.
+                tried_keys = {
+                    (e["candidate_index"]["table"], tuple(e["candidate_index"]["columns"]))
+                    for e in logger.entries if e["decision"] == "proposed"
+                }
+                for table, cols in sorted(tried_keys - accepted_keys):
+                    logger.log(step, {"table": table, "columns": list(cols)}, None,
+                               "rejected", note="tried but not in final recommendation")
                 final_recommendation = {
                     "schema_name": schema_workload["schema_name"],
                     "condition": "B",
