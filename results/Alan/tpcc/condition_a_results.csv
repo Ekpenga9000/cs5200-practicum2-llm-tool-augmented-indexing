@@ -1,0 +1,13 @@
+query_id,recommended_indexes,llm_reasoning_text,execution_time_ms_after,improvement_vs_baseline
+Q1,,w_id is the primary key; the existing PK index satisfies this lookup fully.,0.006,25.0
+Q2,,"d_w_id, d_id form the composite primary key; no additional index needed.",0.007,12.5
+Q3,,"c_w_id, c_d_id, c_id form the composite primary key; PK index covers this lookup.",0.007,0.0
+Q4,,i_id is the primary key; the existing PK index satisfies this lookup fully.,0.011,-22.22
+Q5,,"s_w_id, s_i_id form the composite primary key; PK index covers this lookup.",0.01,0.0
+Q6,"CREATE INDEX idx_customer_w_d_last_first ON customer(c_w_id, c_d_id, c_last, c_first);","Index on (c_w_id, c_d_id, c_last, c_first) enables efficient filter and pre-sorted ORDER BY c_first.",0.008,80.0
+Q7,"CREATE INDEX idx_orders_w_d_c_id ON orders(o_w_id, o_d_id, o_c_id, o_id);","Index on (o_w_id, o_d_id, o_c_id, o_id) supports filter by customer and sorted o_id DESC LIMIT 1.",0.01,94.12
+Q8,,"ol_w_id, ol_d_id, ol_o_id are the leading columns of the order_line PK; covered by existing PK.",0.008,11.11
+Q9,,"no_w_id, no_d_id, no_o_id form the new_order PK; ORDER BY no_o_id ASC LIMIT 1 is already covered.",0.01,-11.11
+Q10,,"Leading PK columns (ol_w_id, ol_d_id, ol_o_id) cover the range scan; PK index suffices.",0.013,-8.33
+Q11,"CREATE INDEX idx_order_line_i_id ON order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id);; CREATE INDEX idx_stock_quantity ON stock(s_w_id, s_i_id, s_quantity);",Including ol_i_id in order_line index and s_quantity in stock index avoids heap fetches for the join and quantity filter.,0.051,23.88
+Q12,"CREATE INDEX idx_orders_w_d_c_id ON orders(o_w_id, o_d_id, o_c_id, o_id);; CREATE INDEX idx_customer_w_d_last_first ON customer(c_w_id, c_d_id, c_last, c_first);",Index on orders by customer supports the join; customer index speeds up the c_w_id=1 filter and GROUP BY c_last.,138.046,-56.56
