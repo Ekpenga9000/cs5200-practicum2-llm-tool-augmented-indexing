@@ -1,0 +1,1041 @@
+query_id,recommended_indexes,llm_reasoning_text,execution_time_ms_after,improvement_vs_baseline
+Q1.1,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",9786.263,-44.26
+Q1.2,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",1.484,99.96
+Q1.3,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",0.304,99.99
+Q2.1,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",12035.003,-256.42
+Q2.2,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",2533.021,12.66
+Q2.3,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",10.28,99.65
+Q3.1,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",3578.82,-17.57
+Q3.2,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",3649.69,-15.35
+Q3.3,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",4161.65,-8.12
+Q3.4,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",4085.674,-2.58
+Q4.1,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",3746.821,-9.53
+Q4.2,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",3715.319,29.39
+Q4.3,"[{""table"": ""lineorder"", ""columns"": [""lo_orderdate"", ""lo_discount"", ""lo_quantity"", ""lo_extendedprice""]}, {""table"": ""lineorder"", ""columns"": [""lo_partkey"", ""lo_suppkey"", ""lo_custkey"", ""lo_orderdate"", ""lo_revenue"", ""lo_supplycost""]}, {""table"": ""date_dim"", ""columns"": [""d_year""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonthnum""]}, {""table"": ""date_dim"", ""columns"": [""d_yearmonth""]}, {""table"": ""date_dim"", ""columns"": [""d_year"", ""d_weeknuminyear""]}, {""table"": ""part"", ""columns"": [""p_category""]}, {""table"": ""part"", ""columns"": [""p_brand""]}, {""table"": ""part"", ""columns"": [""p_mfgr"", ""p_partkey""]}, {""table"": ""supplier"", ""columns"": [""s_region""]}, {""table"": ""supplier"", ""columns"": [""s_nation""]}, {""table"": ""customer"", ""columns"": [""c_region"", ""c_custkey"", ""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_nation""]}, {""table"": ""customer"", ""columns"": [""c_city"", ""c_custkey""]}]","
+## Index Tuning Summary
+
+### Strategy
+This is a Star Schema Benchmark (SSB) workload with a large `lineorder` fact table joined to four dimension tables. The dominant costs are:
+1. Full scans of `lineorder` (~196K cost) for every query
+2. Sequential scans of dimension tables with selective filters
+
+### Key Indexes and Their Impact
+
+---
+
+#### 1. `lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice)` — **Critical for Q1.x**
+- Enables index-only scans for Q1.1/Q1.2/Q1.3 which filter on `lo_discount` and `lo_quantity` ranges and join to `date_dim` on `lo_orderdate`
+- Cost reduction: Q1.1: 217K → 187K, Q1.2: 222K → **9.5K**, Q1.3: 222K → **2.3K** (100x improvement)
+- The leading column `lo_orderdate` allows the planner to do nested-loop index lookups per date key, then the discount/quantity predicates filter within those, and `lo_extendedprice` makes it a covering index-only scan
+
+---
+
+#### 2. `lineorder(lo_partkey, lo_suppkey, lo_custkey, lo_orderdate, lo_revenue, lo_supplycost)` — **Critical for Q2.x, Q3.x, Q4.x**
+- This single wide covering index supports all join patterns across Q2, Q3, and Q4 groups by leading with `lo_partkey` (used in Q2.x, Q4.x) and including `lo_suppkey`/`lo_custkey` (used in Q3.x, Q4.x)
+- The planner can do nested-loop index-only scans: for each filtered part/supplier/customer row, look up matching lineorder rows by the FK key
+- Cost reductions observed:
+  - Q2.1: 211K → **195K**; Q2.2: 205K → **13.9K**; Q2.3: 205K → **13.6K** (huge for selective brand filters)
+  - Q3.3: 204K → **48.5K**; Q3.4: 204K → **48.6K** (city filters very selective)
+  - Q4.3: 207K → **202K** (moderate improvement; customer filter limits benefit)
+- `lo_supplycost` included as a covering column for Q4.x profit = `lo_revenue - lo_supplycost`
+
+---
+
+#### 3. `date_dim(d_year)`, `date_dim(d_yearmonthnum)`, `date_dim(d_yearmonth)`, `date_dim(d_year, d_weeknuminyear)` — **Dimension filter indexes**
+- `d_year`: Used in Q1.1, Q3.1-Q3.3, allows index scan to quickly fetch the 365 rows for a given year instead of seq scan
+- `d_yearmonthnum`: Used in Q1.2, retrieves ~31 rows for a specific year-month
+- `d_year + d_weeknuminyear`: Used in Q1.3, retrieves ~7 rows for a specific week of a year  
+- `d_yearmonth`: Used in Q3.4, retrieves ~31 rows for a named month like 'Dec1997'
+- `date_dim` is small enough that seq scans are often chosen for range predicates; these indexes help the nested-loop join path in Q1.x
+
+---
+
+#### 4. `part(p_category)`, `part(p_brand)`, `part(p_mfgr, p_partkey)` — **Part dimension filters**
+- `p_category`: Used in Q2.1, Q4.3; bitmap index scan for ~5K/4.7K matching rows
+- `p_brand`: Used in Q2.2 (range), Q2.3 (equality); dramatically reduces probe set
+- `p_mfgr + p_partkey`: Used in Q4.1/Q4.2 where `p_mfgr IN ('MFGR#1','MFGR#2')` matches ~50% of parts. The covering `p_partkey` column enables an index-only scan that avoids heap access. Q4.1 cost improved from 212K to **210K**.
+
+---
+
+#### 5. `supplier(s_region)`, `supplier(s_nation)` — **Supplier dimension filters**
+- Supplier is a small table (~2000 rows) so seq scans are common; these bitmap indexes help when selectivity is high
+- `s_region`: Used in Q2.1-Q2.3, Q3.1, Q4.1-Q4.3 (filters to ~1/5 of rows)
+- `s_nation`: Used in Q3.2, Q4.3 (filters to ~1/25 of rows, very selective)
+- The planner selectively uses these vs seq scans based on join ordering
+
+---
+
+#### 6. `customer(c_region, c_custkey, c_nation)` — **Covering index for region-based customer lookup**
+- `c_region` filter (Q3.1, Q4.1-Q4.3) reduces customer set to ~6K rows (~20% selectivity)
+- Including `c_custkey` and `c_nation` makes this a covering index-only scan — no heap access needed
+- Q4.1 confirmed using this as an index-only scan: 212K → **211.7K**; Q3.1: 209K → **209.2K**
+
+#### 7. `customer(c_nation)` — **Nation filter**
+- `c_nation` filter in Q3.2 reduces customer to ~1260 rows (~5% selectivity)
+- Confirmed beneficial via bitmap heap scan
+
+#### 8. `customer(c_city, c_custkey)` — **City filter with covering key**
+- `c_city IN (...)` in Q3.3/Q3.4 is very selective (~260 rows out of 30K)
+- Including `c_custkey` enables index-only scan: Q3.3 confirmed using this to resolve customer join efficiently
+
+### Final Cost Summary (representative queries)
+| Query | Baseline | With Indexes | Improvement |
+|-------|----------|--------------|-------------|
+| Q1.1 | ~217K | ~187K | 14% |
+| Q1.2 | ~222K | ~9.5K | 96% |
+| Q1.3 | ~222K | ~2.3K | 99% |
+| Q2.1 | ~211K | ~195K | 8% |
+| Q2.2 | ~205K | ~13.9K | 93% |
+| Q2.3 | ~205K | ~13.6K | 93% |
+| Q3.3 | ~204K | ~48.5K | 76% |
+| Q3.4 | ~204K | ~48.6K | 76% |
+| Q4.3 | ~207K | ~202K | 2% |
+",10799.733,-290.39
