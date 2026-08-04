@@ -185,11 +185,15 @@ def run_condition_b(schema_workload: dict, cost_estimator, client, max_iteration
                 })
 
             elif block.name == "finalize_recommendation":
+                # The model occasionally omits an optional field -- tolerate it
+                # instead of crashing the whole run.
+                recommended = block.input.get("recommended_indexes", [])
+                reasoning = block.input.get("reasoning", "")
                 accepted_keys = {
                     (idx["table"], tuple(idx["columns"]))
-                    for idx in block.input["recommended_indexes"]
+                    for idx in recommended
                 }
-                for idx in block.input["recommended_indexes"]:
+                for idx in recommended:
                     logger.log(step, idx, None, "accepted", note="final recommendation")
                 # Spec 6.2: the log must record whether each candidate was
                 # accepted OR rejected. Every distinct candidate the LLM tried
@@ -204,8 +208,8 @@ def run_condition_b(schema_workload: dict, cost_estimator, client, max_iteration
                 final_recommendation = {
                     "schema_name": schema_workload["schema_name"],
                     "condition": "B",
-                    "recommended_indexes": block.input["recommended_indexes"],
-                    "llm_reasoning_text": block.input["reasoning"],
+                    "recommended_indexes": recommended,
+                    "llm_reasoning_text": reasoning,
                     "tool_call_log": logger.entries,
                 }
                 tool_results.append({
