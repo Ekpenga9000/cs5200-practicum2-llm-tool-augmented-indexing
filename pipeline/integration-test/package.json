@@ -1,0 +1,16 @@
+{
+    "name": "integration-test-harness",
+    "version": "1.0.0",
+    "private": true,
+    "type": "commonjs",
+    "scripts": {
+        "integration-test": "ts-node src/cli.ts",
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.2",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.7.2"
+    }
+}
