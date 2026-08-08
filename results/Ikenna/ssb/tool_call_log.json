@@ -1,0 +1,1200 @@
+[
+  {
+    "step": 1,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_year"
+      ]
+    },
+    "estimated_cost": 217630.02,
+    "decision": "proposed",
+    "note": "query_id=Q1.1",
+    "timestamp": 1785778884.8038259
+  },
+  {
+    "step": 2,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_orderdate",
+        "lo_discount",
+        "lo_quantity",
+        "lo_extendedprice"
+      ]
+    },
+    "estimated_cost": 187002.39,
+    "decision": "proposed",
+    "note": "query_id=Q1.1",
+    "timestamp": 1785778897.803763
+  },
+  {
+    "step": 3,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_yearmonthnum"
+      ]
+    },
+    "estimated_cost": 222852.9,
+    "decision": "proposed",
+    "note": "query_id=Q1.2",
+    "timestamp": 1785778897.820777
+  },
+  {
+    "step": 4,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_year",
+        "d_weeknuminyear"
+      ]
+    },
+    "estimated_cost": 222854.94,
+    "decision": "proposed",
+    "note": "query_id=Q1.3",
+    "timestamp": 1785778897.8357792
+  },
+  {
+    "step": 5,
+    "candidate_index": {
+      "table": "part",
+      "columns": [
+        "p_category"
+      ]
+    },
+    "estimated_cost": 211176.64,
+    "decision": "proposed",
+    "note": "query_id=Q2.1",
+    "timestamp": 1785778898.246763
+  },
+  {
+    "step": 6,
+    "candidate_index": {
+      "table": "supplier",
+      "columns": [
+        "s_region"
+      ]
+    },
+    "estimated_cost": 212476.31,
+    "decision": "proposed",
+    "note": "query_id=Q2.1",
+    "timestamp": 1785778898.262074
+  },
+  {
+    "step": 7,
+    "candidate_index": {
+      "table": "part",
+      "columns": [
+        "p_brand"
+      ]
+    },
+    "estimated_cost": 205042.07,
+    "decision": "proposed",
+    "note": "query_id=Q2.2",
+    "timestamp": 1785778898.804924
+  },
+  {
+    "step": 8,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_region"
+      ]
+    },
+    "estimated_cost": 209314.26,
+    "decision": "proposed",
+    "note": "query_id=Q3.1",
+    "timestamp": 1785778899.202941
+  },
+  {
+    "step": 9,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_nation"
+      ]
+    },
+    "estimated_cost": 206851.18,
+    "decision": "proposed",
+    "note": "query_id=Q3.2",
+    "timestamp": 1785778899.579987
+  },
+  {
+    "step": 10,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_city"
+      ]
+    },
+    "estimated_cost": 204757.84,
+    "decision": "proposed",
+    "note": "query_id=Q3.3",
+    "timestamp": 1785778899.976883
+  },
+  {
+    "step": 11,
+    "candidate_index": {
+      "table": "supplier",
+      "columns": [
+        "s_nation"
+      ]
+    },
+    "estimated_cost": 207173.2,
+    "decision": "proposed",
+    "note": "query_id=Q3.2",
+    "timestamp": 1785778899.992906
+  },
+  {
+    "step": 12,
+    "candidate_index": {
+      "table": "supplier",
+      "columns": [
+        "s_city"
+      ]
+    },
+    "estimated_cost": 205200.2,
+    "decision": "proposed",
+    "note": "query_id=Q3.3",
+    "timestamp": 1785778900.010404
+  },
+  {
+    "step": 13,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey"
+      ]
+    },
+    "estimated_cost": 209175.72,
+    "decision": "proposed",
+    "note": "query_id=Q3.1",
+    "timestamp": 1785778909.616106
+  },
+  {
+    "step": 14,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_suppkey"
+      ]
+    },
+    "estimated_cost": 212434.78,
+    "decision": "proposed",
+    "note": "query_id=Q2.1",
+    "timestamp": 1785778919.801795
+  },
+  {
+    "step": 15,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey"
+      ]
+    },
+    "estimated_cost": 212193.48,
+    "decision": "proposed",
+    "note": "query_id=Q2.1",
+    "timestamp": 1785778933.85346
+  },
+  {
+    "step": 16,
+    "candidate_index": {
+      "table": "part",
+      "columns": [
+        "p_mfgr"
+      ]
+    },
+    "estimated_cost": 212069.52,
+    "decision": "proposed",
+    "note": "query_id=Q4.1",
+    "timestamp": 1785778934.240757
+  },
+  {
+    "step": 17,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_yearmonth"
+      ]
+    },
+    "estimated_cost": 204117.44,
+    "decision": "proposed",
+    "note": "query_id=Q3.4",
+    "timestamp": 1785778934.25774
+  },
+  {
+    "step": 18,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_orderdate",
+        "lo_discount",
+        "lo_quantity",
+        "lo_extendedprice"
+      ]
+    },
+    "estimated_cost": 9455.88,
+    "decision": "proposed",
+    "note": "query_id=Q1.2",
+    "timestamp": 1785778966.581013
+  },
+  {
+    "step": 19,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_orderdate",
+        "lo_discount",
+        "lo_quantity",
+        "lo_extendedprice"
+      ]
+    },
+    "estimated_cost": 2267.56,
+    "decision": "proposed",
+    "note": "query_id=Q1.3",
+    "timestamp": 1785778980.35303
+  },
+  {
+    "step": 20,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_revenue"
+      ]
+    },
+    "estimated_cost": 195304.29,
+    "decision": "proposed",
+    "note": "query_id=Q2.1",
+    "timestamp": 1785778993.318121
+  },
+  {
+    "step": 21,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_revenue"
+      ]
+    },
+    "estimated_cost": 209833.99,
+    "decision": "proposed",
+    "note": "query_id=Q3.1",
+    "timestamp": 1785779006.631656
+  },
+  {
+    "step": 22,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_revenue"
+      ]
+    },
+    "estimated_cost": 206977.06,
+    "decision": "proposed",
+    "note": "query_id=Q3.2",
+    "timestamp": 1785779019.180773
+  },
+  {
+    "step": 23,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey",
+        "lo_suppkey",
+        "lo_partkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 212179.52,
+    "decision": "proposed",
+    "note": "query_id=Q4.1",
+    "timestamp": 1785779032.733068
+  },
+  {
+    "step": 24,
+    "candidate_index": {
+      "table": "supplier",
+      "columns": [
+        "s_region"
+      ]
+    },
+    "estimated_cost": 209428.29,
+    "decision": "proposed",
+    "note": "query_id=Q3.1",
+    "timestamp": 1785779032.7516952
+  },
+  {
+    "step": 25,
+    "candidate_index": {
+      "table": "supplier",
+      "columns": [
+        "s_nation"
+      ]
+    },
+    "estimated_cost": 207843.07,
+    "decision": "proposed",
+    "note": "query_id=Q4.3",
+    "timestamp": 1785779032.767043
+  },
+  {
+    "step": 26,
+    "candidate_index": {
+      "table": "part",
+      "columns": [
+        "p_category",
+        "p_brand"
+      ]
+    },
+    "estimated_cost": 211002.11,
+    "decision": "proposed",
+    "note": "query_id=Q2.1",
+    "timestamp": 1785779033.341894
+  },
+  {
+    "step": 27,
+    "candidate_index": {
+      "table": "part",
+      "columns": [
+        "p_mfgr",
+        "p_category"
+      ]
+    },
+    "estimated_cost": 207858.45,
+    "decision": "proposed",
+    "note": "query_id=Q4.3",
+    "timestamp": 1785779033.773818
+  },
+  {
+    "step": 28,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_year"
+      ]
+    },
+    "estimated_cost": 209439.92,
+    "decision": "proposed",
+    "note": "query_id=Q3.1",
+    "timestamp": 1785779033.7896588
+  },
+  {
+    "step": 29,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_revenue"
+      ]
+    },
+    "estimated_cost": 48514.37,
+    "decision": "proposed",
+    "note": "query_id=Q3.3",
+    "timestamp": 1785779060.4641302
+  },
+  {
+    "step": 30,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_revenue"
+      ]
+    },
+    "estimated_cost": 48624.29,
+    "decision": "proposed",
+    "note": "query_id=Q3.4",
+    "timestamp": 1785779073.7515829
+  },
+  {
+    "step": 31,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey",
+        "lo_suppkey",
+        "lo_partkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 213514.81,
+    "decision": "proposed",
+    "note": "query_id=Q4.2",
+    "timestamp": 1785779089.96066
+  },
+  {
+    "step": 32,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey",
+        "lo_suppkey",
+        "lo_partkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 208110.09,
+    "decision": "proposed",
+    "note": "query_id=Q4.3",
+    "timestamp": 1785779104.275678
+  },
+  {
+    "step": 33,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_revenue"
+      ]
+    },
+    "estimated_cost": 13893.21,
+    "decision": "proposed",
+    "note": "query_id=Q2.2",
+    "timestamp": 1785779117.58405
+  },
+  {
+    "step": 34,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_revenue"
+      ]
+    },
+    "estimated_cost": 13568.95,
+    "decision": "proposed",
+    "note": "query_id=Q2.3",
+    "timestamp": 1785779132.921961
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_region",
+        "c_nation",
+        "c_custkey"
+      ]
+    },
+    "estimated_cost": 211882.15,
+    "decision": "proposed",
+    "note": "query_id=Q4.1",
+    "timestamp": 1785779133.337085
+  },
+  {
+    "step": 36,
+    "candidate_index": {
+      "table": "supplier",
+      "columns": [
+        "s_region",
+        "s_suppkey"
+      ]
+    },
+    "estimated_cost": 212328.53,
+    "decision": "proposed",
+    "note": "query_id=Q4.1",
+    "timestamp": 1785779133.355799
+  },
+  {
+    "step": 37,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_revenue"
+      ]
+    },
+    "estimated_cost": 211792.88,
+    "decision": "proposed",
+    "note": "query_id=Q4.1",
+    "timestamp": 1785779157.351022
+  },
+  {
+    "step": 38,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_revenue"
+      ]
+    },
+    "estimated_cost": 213709.94,
+    "decision": "proposed",
+    "note": "query_id=Q4.2",
+    "timestamp": 1785779170.294042
+  },
+  {
+    "step": 39,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_revenue"
+      ]
+    },
+    "estimated_cost": 207826.5,
+    "decision": "proposed",
+    "note": "query_id=Q4.3",
+    "timestamp": 1785779183.913975
+  },
+  {
+    "step": 40,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_custkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 211938.24,
+    "decision": "proposed",
+    "note": "query_id=Q4.1",
+    "timestamp": 1785779197.691942
+  },
+  {
+    "step": 41,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_custkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 195604.07,
+    "decision": "proposed",
+    "note": "query_id=Q2.1",
+    "timestamp": 1785779212.307133
+  },
+  {
+    "step": 42,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_custkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 213400.88,
+    "decision": "proposed",
+    "note": "query_id=Q4.2",
+    "timestamp": 1785779237.028068
+  },
+  {
+    "step": 43,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_custkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 202310.07,
+    "decision": "proposed",
+    "note": "query_id=Q4.3",
+    "timestamp": 1785779250.733452
+  },
+  {
+    "step": 44,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_custkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 209394.39,
+    "decision": "proposed",
+    "note": "query_id=Q3.1",
+    "timestamp": 1785779265.004752
+  },
+  {
+    "step": 45,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_custkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 205353.19,
+    "decision": "proposed",
+    "note": "query_id=Q3.3",
+    "timestamp": 1785779280.878803
+  },
+  {
+    "step": 46,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_region",
+        "c_custkey",
+        "c_nation"
+      ]
+    },
+    "estimated_cost": 209205.48,
+    "decision": "proposed",
+    "note": "query_id=Q3.1",
+    "timestamp": 1785779281.2656908
+  },
+  {
+    "step": 47,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_city",
+        "c_custkey"
+      ]
+    },
+    "estimated_cost": 204503.29,
+    "decision": "proposed",
+    "note": "query_id=Q3.3",
+    "timestamp": 1785779281.666091
+  },
+  {
+    "step": 48,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_custkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 13661.53,
+    "decision": "proposed",
+    "note": "query_id=Q2.2",
+    "timestamp": 1785779312.085323
+  },
+  {
+    "step": 49,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_custkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 13111.97,
+    "decision": "proposed",
+    "note": "query_id=Q2.3",
+    "timestamp": 1785779325.46965
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_custkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 207179.06,
+    "decision": "proposed",
+    "note": "query_id=Q3.2",
+    "timestamp": 1785779337.713221
+  },
+  {
+    "step": 51,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_custkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": 204241.25,
+    "decision": "proposed",
+    "note": "query_id=Q3.4",
+    "timestamp": 1785779349.77132
+  },
+  {
+    "step": 52,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_region",
+        "c_custkey",
+        "c_nation"
+      ]
+    },
+    "estimated_cost": 211680.87,
+    "decision": "proposed",
+    "note": "query_id=Q4.1",
+    "timestamp": 1785779350.153891
+  },
+  {
+    "step": 53,
+    "candidate_index": {
+      "table": "part",
+      "columns": [
+        "p_mfgr",
+        "p_partkey"
+      ]
+    },
+    "estimated_cost": 210046.61,
+    "decision": "proposed",
+    "note": "query_id=Q4.1",
+    "timestamp": 1785779350.6167748
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_orderdate",
+        "lo_discount",
+        "lo_quantity",
+        "lo_extendedprice"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.0694468
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_custkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.069451
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_year"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.069453
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_yearmonthnum"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.069453
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_yearmonth"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.0694542
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_year",
+        "d_weeknuminyear"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.0694551
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "part",
+      "columns": [
+        "p_category"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.0694559
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "part",
+      "columns": [
+        "p_brand"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.0694559
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "part",
+      "columns": [
+        "p_mfgr",
+        "p_partkey"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.0694568
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "supplier",
+      "columns": [
+        "s_region"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.069458
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "supplier",
+      "columns": [
+        "s_nation"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.069459
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_region",
+        "c_custkey",
+        "c_nation"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.069459
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_nation"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.069462
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_city",
+        "c_custkey"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785779391.069463
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_city"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.069608
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_region"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.069611
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_region",
+        "c_nation",
+        "c_custkey"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.069613
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.0696142
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_revenue"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.0696151
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_custkey",
+        "lo_suppkey",
+        "lo_partkey",
+        "lo_orderdate",
+        "lo_revenue",
+        "lo_supplycost"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.069616
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.0696168
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_partkey",
+        "lo_suppkey",
+        "lo_orderdate",
+        "lo_revenue"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.069618
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "lineorder",
+      "columns": [
+        "lo_suppkey"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.069619
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "part",
+      "columns": [
+        "p_category",
+        "p_brand"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.06962
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "part",
+      "columns": [
+        "p_mfgr"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.069632
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "part",
+      "columns": [
+        "p_mfgr",
+        "p_category"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.069633
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "supplier",
+      "columns": [
+        "s_city"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.069634
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "supplier",
+      "columns": [
+        "s_region",
+        "s_suppkey"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785779391.0696352
+  }
+]
