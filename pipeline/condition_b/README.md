@@ -20,10 +20,11 @@ Ikenna's measurement module's job.
 | File | Purpose |
 |---|---|
 | `condition_b.py` | Core loop: `run_condition_b(schema_workload, cost_estimator, client)`. Pure logic, no DB/API-specific code — takes the estimator and LLM client as injected dependencies so it's testable offline. |
-| `hypopg_estimator.py` | Production cost estimator. Wraps a Postgres connection, uses HypoPG to estimate cost of a candidate index without physically creating it. |
-| `mock_estimator.py` | Offline stand-in for `hypopg_estimator.py`, used in unit tests — no DB needed. |
+| `real_index_estimator.py` | Production cost estimator. Wraps a Postgres connection; creates a real index, runs `EXPLAIN`, then drops it — no HypoPG/build toolchain needed (Windows-friendly). |
+| `mock_estimator.py` | Offline stand-in for `real_index_estimator.py`, used in unit tests — no DB needed. |
 | `test_condition_b.py` | Unit test. Uses a `FakeAnthropicClient` that replays a scripted tool-call conversation, so the whole loop (propose → estimate → iterate → finalize) is verified without a live API key or database. |
 | `run.py` | Real entry point for Phase 2 — connects to Postgres, calls the real Anthropic API, writes the final `Recommendation` JSON to disk. |
+| `apply_and_measure.py` | Temporary stand-in for Ikenna's measurement module: applies the recommended indexes for real, re-runs `EXPLAIN ANALYZE`, and writes `condition_b_results.csv` + `tool_call_log.json`. Replaced by the shared measurement module once merged. |
 
 ## Input / Output formats (agreed with team, 2026-07-22)
 
@@ -49,7 +50,8 @@ Ikenna's measurement module's job.
   "llm_reasoning_text": "...",
   "tool_call_log": [
     {"step": 1, "candidate_index": {...}, "estimated_cost": 1234.5, "decision": "proposed", "note": "query_id=Q1", "timestamp": ...},
-    {"step": 2, "candidate_index": {...}, "estimated_cost": null, "decision": "accepted", "note": "final recommendation", "timestamp": ...}
+    {"step": 2, "candidate_index": {...}, "estimated_cost": null, "decision": "accepted", "note": "final recommendation", "timestamp": ...},
+    {"step": 2, "candidate_index": {...}, "estimated_cost": null, "decision": "rejected", "note": "tried but not in final recommendation", "timestamp": ...}
   ]
 }
 ```
@@ -67,9 +69,7 @@ python test_condition_b.py
 pip install anthropic psycopg2-binary
 export ANTHROPIC_API_KEY=...
 
-# once per target DB:
-psql -d tpcc -c "CREATE EXTENSION IF NOT EXISTS hypopg;"
-
+# No DB extension needed -- real_index_estimator.py uses temporary real indexes.
 python run.py schema_workload.json recommendation_out.json
 ```
 
@@ -84,7 +84,7 @@ python run.py schema_workload.json recommendation_out.json
 - Model is pinned via `MODEL` at the top of `condition_b.py` — must match
   whatever Sylfhen's Condition A module uses, and stay the same across both
   schemas, per the assignment's fairness requirement.
-- If a schema doesn't support HypoPG (e.g. MySQL for TATP), swap in a
-  different estimator implementing the same
+- To use a different backend (e.g. HypoPG for faster iteration, or a non-Postgres
+  engine like MySQL for TATP), swap in a different estimator implementing the same
   `estimate_cost(candidate_index, query_text) -> {"estimated_cost", "plan_text"}`
   interface — `condition_b.py` doesn't need to change.

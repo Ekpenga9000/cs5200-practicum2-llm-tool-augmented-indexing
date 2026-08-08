@@ -98,7 +98,7 @@ class ToolCallLogger:
             "step": step,
             "candidate_index": candidate_index,
             "estimated_cost": estimated_cost,
-            "decision": decision,   # "proposed" | "accepted"
+            "decision": decision,   # "proposed" | "accepted" | "rejected"
             "note": note,
             "timestamp": time.time(),
         })
@@ -107,7 +107,7 @@ class ToolCallLogger:
         return json.dumps(self.entries, indent=2)
 
 
-def run_condition_b(schema_workload: dict, cost_estimator, client) -> dict:
+def run_condition_b(schema_workload: dict, cost_estimator, client, max_iterations: int = 40) -> dict:
     """
     schema_workload: SchemaWorkload dict (see module docstring)
     cost_estimator: any object exposing
@@ -132,12 +132,18 @@ def run_condition_b(schema_workload: dict, cost_estimator, client) -> dict:
 
     messages = [{"role": "user", "content": user_prompt}]
     step = 0
+    iterations = 0
     final_recommendation = None
 
     while final_recommendation is None:
+        iterations += 1
+        if iterations > max_iterations:
+            raise RuntimeError(
+                f"LLM did not call finalize_recommendation within {max_iterations} iterations"
+            )
         response = client.messages.create(
             model=MODEL,
-            max_tokens=2000,
+            max_tokens=8000,
             system=SYSTEM_PROMPT,
             tools=TOOLS,
             messages=messages,
@@ -152,7 +158,21 @@ def run_condition_b(schema_workload: dict, cost_estimator, client) -> dict:
             step += 1
             if block.name == "estimate_index_cost":
                 candidate = {"table": block.input["table"], "columns": block.input["columns"]}
-                query_text = queries_by_id[block.input["query_id"]]
+                query_id = block.input["query_id"]
+                query_text = queries_by_id.get(query_id)
+                if query_text is None:
+                    # Don't crash the whole run on a bad query_id -- hand the
+                    # error back so the model can retry with a valid one.
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps({
+                            "error": f"unknown query_id '{query_id}'; "
+                                     f"valid ids: {list(queries_by_id)}"
+                        }),
+                        "is_error": True,
+                    })
+                    continue
                 result = cost_estimator.estimate_cost(candidate, query_text)
 
                 logger.log(step, candidate, result["estimated_cost"], "proposed",
@@ -165,25 +185,100 @@ def run_condition_b(schema_workload: dict, cost_estimator, client) -> dict:
                 })
 
             elif block.name == "finalize_recommendation":
-                for idx in block.input["recommended_indexes"]:
-                    logger.log(step, idx, None, "accepted", note="final recommendation")
+                recommended_indexes = block.input.get("recommended_indexes")
+                reasoning = block.input.get("reasoning")
+
+                if not isinstance(recommended_indexes, list):
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps({
+                            "error": (
+                                "finalize_recommendation requires a "
+                                "recommended_indexes array."
+                            )
+                        }),
+                        "is_error": True,
+                    })
+                    continue
+
+                if not isinstance(reasoning, str) or not reasoning.strip():
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps({
+                            "error": (
+                                "finalize_recommendation requires a non-empty "
+                                "reasoning string. Explain why the final indexes "
+                                "were accepted and why other candidates were rejected."
+                            )
+                        }),
+                        "is_error": True,
+                    })
+                    continue
+
+                accepted_keys = {
+                    (idx["table"], tuple(idx["columns"]))
+                    for idx in recommended_indexes
+                }
+
+                for idx in recommended_indexes:
+                    logger.log(
+                        step,
+                        idx,
+                        None,
+                        "accepted",
+                        note="final recommendation",
+                    )
+
+                tried_keys = {
+                    (
+                        e["candidate_index"]["table"],
+                        tuple(e["candidate_index"]["columns"]),
+                    )
+                    for e in logger.entries
+                    if e["decision"] == "proposed"
+                }
+
+                for table, cols in sorted(tried_keys - accepted_keys):
+                    logger.log(
+                        step,
+                        {"table": table, "columns": list(cols)},
+                        None,
+                        "rejected",
+                        note="tried but not in final recommendation",
+                    )
+
                 final_recommendation = {
                     "schema_name": schema_workload["schema_name"],
                     "condition": "B",
-                    "recommended_indexes": block.input["recommended_indexes"],
-                    "llm_reasoning_text": block.input["reasoning"],
+                    "recommended_indexes": recommended_indexes,
+                    "llm_reasoning_text": reasoning,
                     "tool_call_log": logger.entries,
                 }
+
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": block.id,
                     "content": "Recommendation recorded.",
-                })
+                })  
+                
+                
 
         if tool_results:
-            messages.append({"role": "user", "content": tool_results})
-
-        if response.stop_reason != "tool_use" and final_recommendation is None:
-            raise RuntimeError("LLM stopped without calling finalize_recommendation")
-
+            messages.append({
+                "role": "user",
+                "content": tool_results,
+            })
+        elif final_recommendation is None:
+            messages.append({
+                "role": "user",
+                "content": (
+                    "You have not completed the task. Do not respond with ordinary "
+                    "text. Continue evaluating candidates if necessary, then call "
+                    "finalize_recommendation with both recommended_indexes and a "
+                    "non-empty reasoning string."
+                ),
+            })
+        
     return final_recommendation

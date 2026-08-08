@@ -1,0 +1,10 @@
+pipeline/condition_a/.env
+*.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Environment files
+.env
