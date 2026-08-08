@@ -1,7 +1,7 @@
 # JOB Schema — Analysis Summary
 
 ## Baseline
-The No index baseline execution times for the 113 JOB queries ranged from
+No-index baseline execution times for the 113 JOB queries ranged from
 under 100ms (simple lookups) to over 40 seconds (large multi-way joins
 like 23c), reflecting real cost differences across the Simple/Medium/
 Complex tiers.
@@ -10,7 +10,7 @@ Complex tiers.
 The LLM recommended 47 unique indexes across all 113 queries, based
 purely on reading the schema DDL and query text. One recommended index
 (on movie_info.info) failed to build due to Postgres's 8191-byte B-tree
-row limit on that TEXT column. This a limitation Condition A had no way
+row limit on that TEXT column -- a limitation Condition A had no way
 to detect without tool access.
 
 After applying the 46 buildable indexes and running ANALYZE to refresh
@@ -25,31 +25,45 @@ planner statistics, results varied sharply by tier:
 Improvement grew and regression rate fell as query complexity increased.
 On Simple queries, gains from useful indexes were largely canceled out
 by regressions from unnecessary ones (e.g., 6d regressed 264%, 6f
-regressed 231%). This is likely because Condition A recommends indexes for
+regressed 231%) -- likely because Condition A recommends indexes for
 every plausible join/filter column without verifying whether the
 planner will actually benefit. On Complex queries, the same broad
 strategy paid off far more reliably (e.g., 23b and 29b both improved
 ~99.9%).
 
 ## Condition B (Tool-Augmented)
-Not yet completed for this schema. Attempted runs against the full
-113-query JOB workload surfaced two robustness gaps in the shared
-Condition B module that don't appear at small-scale (toy/TPC-C-sized)
-testing:
-1. `real_index_estimator.py` crashed the whole run on the first
-   candidate index that exceeded Postgres's B-tree size limit, with
-   no error handling around the CREATE INDEX call.
-2. `condition_b.py` assumed the LLM's `finalize_recommendation` tool
-   call would always include a `reasoning` field, which is not
-   guaranteed by the tool use API and failed with a KeyError once the
-   model omitted it on a 113 query prompt.
+The tool-augmented pipeline completed successfully: across 82 logged
+tool calls, the LLM proposed and tested candidate indexes against real
+EXPLAIN cost estimates before finalizing a recommendation of just 14
+indexes -- roughly a third of Condition A's 47. That gap is itself a
+notable finding: with the ability to verify candidates before
+committing, the model converged on a much more selective, conservative
+index set rather than covering every plausible join/filter column.
 
-Both were patched locally to keep testing, but a full real run against
-113 queries with the iterative propose-estimate-iterate loop represents
-a meaningfully larger API cost than the module's original TPC-C test
-case. Given that, this run is being deferred, to be completed either
-by re-running with these fixes upstreamed, or once the cost tradeoff is
-discussed with the team.
+The performance measurement for this recommendation, however, is not
+reportable as a fair comparison. The baseline_results.csv used for the
+before/after comparison was captured two days prior to the Condition B
+measurement run, during which the Postgres container was restarted
+(following an interrupted overnight run) and its buffer cache cleared.
+Measuring Condition B's indexes against a stale, cold-cache baseline
+produced implausible results -- widespread multi-thousand-percent
+regressions even on queries with no relationship to the applied
+indexes -- consistent with environment drift rather than an actual
+effect of the 14 recommended indexes. Re-measuring Condition B against
+a freshly captured baseline, taken in the same session/cache state, is
+required before these performance numbers can be trusted, and was not
+completed in the time available.
 
 ## Comparison
-Pending Condition B results.
+Condition A’s core weakness—recommending indexes that it cannot verify—becomes particularly apparent on the Simple tier, where restraint is important and untested recommendations can be as harmful as they are helpful.
+
+Condition B’s access to tools clearly changed its behavior in the expected direction: it produced fewer recommendations and tested candidates more deliberately. The key question is whether this increased selectivity translates into better real-world performance than Condition A’s broader approach. That question remains unresolved because of the baseline measurement issue described above, rather than because of any apparent flaw in Condition B’s recommendation process.
+
+## Known Limitations
+
+* **Invalid before/after timing comparison:** Condition B’s before-and-after timing comparison is not reliable because the baseline was captured under different cache conditions. A new measurement under consistent conditions is needed before drawing conclusions about the relative performance of the two approaches.
+
+* **Unverifiable index recommendation:** Condition A recommended an index that could not be physically created due to PostgreSQL’s B-tree row-size limit on a `TEXT` column. Condition B’s tool access would presumably have allowed it to identify this issue before finalizing the recommendation. This should be confirmed once a valid Condition B performance measurement is available.
+
+* **Robustness issues in Condition B:** Two robustness issues were identified and locally patched in the shared Condition B module during testing at JOB’s full 113-query scale: unhandled index-build failures and a missing-field error in `finalize_recommendation`. Both issues were reported to the team separately.
+
