@@ -1,0 +1,1049 @@
+[
+  {
+    "step": 1,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_year",
+        "d_moy",
+        "d_date_sk"
+      ]
+    },
+    "estimated_cost": 100278.81,
+    "decision": "proposed",
+    "note": "query_id=Q1",
+    "timestamp": 1786255116.254426
+  },
+  {
+    "step": 2,
+    "candidate_index": {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_store_sk",
+        "ss_cdemo_sk",
+        "ss_hdemo_sk",
+        "ss_addr_sk"
+      ]
+    },
+    "estimated_cost": 82356.26,
+    "decision": "proposed",
+    "note": "query_id=Q1",
+    "timestamp": 1786255121.561263
+  },
+  {
+    "step": 3,
+    "candidate_index": {
+      "table": "customer_demographics",
+      "columns": [
+        "cd_marital_status",
+        "cd_education_status",
+        "cd_demo_sk"
+      ]
+    },
+    "estimated_cost": 101431.16,
+    "decision": "proposed",
+    "note": "query_id=Q1",
+    "timestamp": 1786255127.2040918
+  },
+  {
+    "step": 4,
+    "candidate_index": {
+      "table": "customer_address",
+      "columns": [
+        "ca_country",
+        "ca_state",
+        "ca_address_sk"
+      ]
+    },
+    "estimated_cost": 101431.16,
+    "decision": "proposed",
+    "note": "query_id=Q1",
+    "timestamp": 1786255128.237035
+  },
+  {
+    "step": 5,
+    "candidate_index": {
+      "table": "item",
+      "columns": [
+        "i_category",
+        "i_manager_id",
+        "i_item_sk"
+      ]
+    },
+    "estimated_cost": 48911.04,
+    "decision": "proposed",
+    "note": "query_id=Q2",
+    "timestamp": 1786255129.069185
+  },
+  {
+    "step": 6,
+    "candidate_index": {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_sold_date_sk",
+        "cs_item_sk",
+        "cs_bill_customer_sk",
+        "cs_bill_cdemo_sk"
+      ]
+    },
+    "estimated_cost": 48884.85,
+    "decision": "proposed",
+    "note": "query_id=Q2",
+    "timestamp": 1786255134.2793758
+  },
+  {
+    "step": 7,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_year",
+        "d_moy",
+        "d_date_sk"
+      ]
+    },
+    "estimated_cost": 16960.38,
+    "decision": "proposed",
+    "note": "query_id=Q4",
+    "timestamp": 1786255144.2703319
+  },
+  {
+    "step": 8,
+    "candidate_index": {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_item_sk",
+        "ss_customer_sk",
+        "ss_store_sk",
+        "ss_cdemo_sk",
+        "ss_hdemo_sk",
+        "ss_addr_sk"
+      ]
+    },
+    "estimated_cost": 69346.93,
+    "decision": "proposed",
+    "note": "query_id=Q5",
+    "timestamp": 1786255151.792172
+  },
+  {
+    "step": 9,
+    "candidate_index": {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_sold_date_sk",
+        "cs_item_sk",
+        "cs_warehouse_sk"
+      ]
+    },
+    "estimated_cost": 9068.67,
+    "decision": "proposed",
+    "note": "query_id=Q6",
+    "timestamp": 1786255155.088473
+  },
+  {
+    "step": 10,
+    "candidate_index": {
+      "table": "store_returns",
+      "columns": [
+        "sr_customer_sk",
+        "sr_item_sk",
+        "sr_ticket_number"
+      ]
+    },
+    "estimated_cost": 19124.41,
+    "decision": "proposed",
+    "note": "query_id=Q4",
+    "timestamp": 1786255156.337585
+  },
+  {
+    "step": 11,
+    "candidate_index": {
+      "table": "inventory",
+      "columns": [
+        "inv_item_sk",
+        "inv_warehouse_sk",
+        "inv_date_sk"
+      ]
+    },
+    "estimated_cost": 49423.81,
+    "decision": "proposed",
+    "note": "query_id=Q8",
+    "timestamp": 1786255172.651584
+  },
+  {
+    "step": 12,
+    "candidate_index": {
+      "table": "web_sales",
+      "columns": [
+        "ws_sold_date_sk",
+        "ws_item_sk",
+        "ws_order_number"
+      ]
+    },
+    "estimated_cost": 31215.18,
+    "decision": "proposed",
+    "note": "query_id=Q10",
+    "timestamp": 1786255174.411102
+  },
+  {
+    "step": 13,
+    "candidate_index": {
+      "table": "store_returns",
+      "columns": [
+        "sr_returned_date_sk",
+        "sr_customer_sk",
+        "sr_store_sk"
+      ]
+    },
+    "estimated_cost": 21730.37,
+    "decision": "proposed",
+    "note": "query_id=Q31",
+    "timestamp": 1786255185.088995
+  },
+  {
+    "step": 14,
+    "candidate_index": {
+      "table": "catalog_returns",
+      "columns": [
+        "cr_returned_date_sk",
+        "cr_returning_customer_sk"
+      ]
+    },
+    "estimated_cost": 5522.08,
+    "decision": "proposed",
+    "note": "query_id=Q11",
+    "timestamp": 1786255185.5381482
+  },
+  {
+    "step": 15,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_date",
+        "d_date_sk"
+      ]
+    },
+    "estimated_cost": 9074.77,
+    "decision": "proposed",
+    "note": "query_id=Q6",
+    "timestamp": 1786255185.897289
+  },
+  {
+    "step": 16,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_month_seq",
+        "d_date_sk"
+      ]
+    },
+    "estimated_cost": 47354.96,
+    "decision": "proposed",
+    "note": "query_id=Q12",
+    "timestamp": 1786255186.255208
+  },
+  {
+    "step": 17,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_current_addr_sk",
+        "c_birth_month",
+        "c_birth_year",
+        "c_customer_sk"
+      ]
+    },
+    "estimated_cost": 48890.98,
+    "decision": "proposed",
+    "note": "query_id=Q2",
+    "timestamp": 1786255187.04049
+  },
+  {
+    "step": 18,
+    "candidate_index": {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_sold_date_sk",
+        "cs_item_sk",
+        "cs_bill_customer_sk",
+        "cs_wholesale_cost"
+      ]
+    },
+    "estimated_cost": 251373.99,
+    "decision": "proposed",
+    "note": "query_id=Q34",
+    "timestamp": 1786255191.817547
+  },
+  {
+    "step": 19,
+    "candidate_index": {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_customer_sk",
+        "ss_item_sk"
+      ]
+    },
+    "estimated_cost": 240899.26,
+    "decision": "proposed",
+    "note": "query_id=Q34",
+    "timestamp": 1786255207.4946198
+  },
+  {
+    "step": 20,
+    "candidate_index": {
+      "table": "web_returns",
+      "columns": [
+        "wr_returned_date_sk",
+        "wr_returning_customer_sk",
+        "wr_item_sk"
+      ]
+    },
+    "estimated_cost": 7487.25,
+    "decision": "proposed",
+    "note": "query_id=Q35",
+    "timestamp": 1786255207.958726
+  },
+  {
+    "step": 21,
+    "candidate_index": {
+      "table": "item",
+      "columns": [
+        "i_category",
+        "i_manager_id",
+        "i_item_sk",
+        "i_brand_id",
+        "i_class_id",
+        "i_category_id"
+      ]
+    },
+    "estimated_cost": 300478.09,
+    "decision": "proposed",
+    "note": "query_id=Q33",
+    "timestamp": 1786255208.750067
+  },
+  {
+    "step": 22,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_week_seq",
+        "d_year",
+        "d_moy",
+        "d_dom",
+        "d_date_sk"
+      ]
+    },
+    "estimated_cost": 303800.64,
+    "decision": "proposed",
+    "note": "query_id=Q33",
+    "timestamp": 1786255209.121871
+  },
+  {
+    "step": 23,
+    "candidate_index": {
+      "table": "store_sales",
+      "columns": [
+        "ss_customer_sk",
+        "ss_item_sk",
+        "ss_sold_date_sk"
+      ]
+    },
+    "estimated_cost": 182314.23,
+    "decision": "proposed",
+    "note": "query_id=Q32",
+    "timestamp": 1786255214.6209338
+  },
+  {
+    "step": 24,
+    "candidate_index": {
+      "table": "web_sales",
+      "columns": [
+        "ws_bill_customer_sk",
+        "ws_item_sk",
+        "ws_sold_date_sk"
+      ]
+    },
+    "estimated_cost": 147581.93,
+    "decision": "proposed",
+    "note": "query_id=Q32",
+    "timestamp": 1786255216.0813382
+  },
+  {
+    "step": 25,
+    "candidate_index": {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_item_sk",
+        "ss_customer_sk"
+      ]
+    },
+    "estimated_cost": 157246.13,
+    "decision": "proposed",
+    "note": "query_id=Q38",
+    "timestamp": 1786255232.330664
+  },
+  {
+    "step": 26,
+    "candidate_index": {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_sold_date_sk",
+        "cs_item_sk",
+        "cs_bill_customer_sk"
+      ]
+    },
+    "estimated_cost": 157607.91,
+    "decision": "proposed",
+    "note": "query_id=Q38",
+    "timestamp": 1786255237.227645
+  },
+  {
+    "step": 27,
+    "candidate_index": {
+      "table": "web_sales",
+      "columns": [
+        "ws_sold_date_sk",
+        "ws_item_sk",
+        "ws_bill_customer_sk"
+      ]
+    },
+    "estimated_cost": 157607.99,
+    "decision": "proposed",
+    "note": "query_id=Q38",
+    "timestamp": 1786255238.860917
+  },
+  {
+    "step": 28,
+    "candidate_index": {
+      "table": "customer_address",
+      "columns": [
+        "ca_city",
+        "ca_address_sk"
+      ]
+    },
+    "estimated_cost": 20582.11,
+    "decision": "proposed",
+    "note": "query_id=Q9",
+    "timestamp": 1786255239.714412
+  },
+  {
+    "step": 29,
+    "candidate_index": {
+      "table": "store_returns",
+      "columns": [
+        "sr_cdemo_sk",
+        "sr_customer_sk",
+        "sr_item_sk"
+      ]
+    },
+    "estimated_cost": 5893.96,
+    "decision": "proposed",
+    "note": "query_id=Q9",
+    "timestamp": 1786255241.231464
+  },
+  {
+    "step": 30,
+    "candidate_index": {
+      "table": "household_demographics",
+      "columns": [
+        "hd_income_band_sk",
+        "hd_buy_potential",
+        "hd_demo_sk"
+      ]
+    },
+    "estimated_cost": 22072.48,
+    "decision": "proposed",
+    "note": "query_id=Q9",
+    "timestamp": 1786255241.25316
+  },
+  {
+    "step": 31,
+    "candidate_index": {
+      "table": "web_sales",
+      "columns": [
+        "ws_ship_date_sk",
+        "ws_ship_addr_sk",
+        "ws_web_site_sk",
+        "ws_order_number"
+      ]
+    },
+    "estimated_cost": 24816.76,
+    "decision": "proposed",
+    "note": "query_id=Q52",
+    "timestamp": 1786255252.847175
+  },
+  {
+    "step": 32,
+    "candidate_index": {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_ship_date_sk",
+        "cs_sold_date_sk",
+        "cs_warehouse_sk",
+        "cs_ship_mode_sk",
+        "cs_call_center_sk"
+      ]
+    },
+    "estimated_cost": 47670.39,
+    "decision": "proposed",
+    "note": "query_id=Q12",
+    "timestamp": 1786255257.006527
+  },
+  {
+    "step": 33,
+    "candidate_index": {
+      "table": "store_returns",
+      "columns": [
+        "sr_returned_date_sk",
+        "sr_item_sk",
+        "sr_customer_sk"
+      ]
+    },
+    "estimated_cost": 30919.69,
+    "decision": "proposed",
+    "note": "query_id=Q49",
+    "timestamp": 1786255258.1968052
+  },
+  {
+    "step": 34,
+    "candidate_index": {
+      "table": "web_returns",
+      "columns": [
+        "wr_returned_date_sk",
+        "wr_item_sk",
+        "wr_reason_sk"
+      ]
+    },
+    "estimated_cost": 46364.28,
+    "decision": "proposed",
+    "note": "query_id=Q49",
+    "timestamp": 1786255258.4926841
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_year",
+        "d_moy",
+        "d_date_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166107
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_month_seq",
+        "d_date_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166114
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_week_seq",
+        "d_year",
+        "d_moy",
+        "d_dom",
+        "d_date_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166115
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "date_dim",
+      "columns": [
+        "d_date",
+        "d_date_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166116
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_item_sk",
+        "ss_customer_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.1661172
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_store_sk",
+        "ss_cdemo_sk",
+        "ss_hdemo_sk",
+        "ss_addr_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166118
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_sold_date_sk",
+        "cs_item_sk",
+        "cs_bill_customer_sk",
+        "cs_wholesale_cost"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.1661189
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_ship_date_sk",
+        "cs_warehouse_sk",
+        "cs_ship_mode_sk",
+        "cs_call_center_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.16612
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "web_sales",
+      "columns": [
+        "ws_sold_date_sk",
+        "ws_item_sk",
+        "ws_order_number"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166122
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "web_sales",
+      "columns": [
+        "ws_ship_date_sk",
+        "ws_ship_addr_sk",
+        "ws_web_site_sk",
+        "ws_order_number"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166123
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "web_sales",
+      "columns": [
+        "ws_bill_customer_sk",
+        "ws_item_sk",
+        "ws_sold_date_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166124
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "store_returns",
+      "columns": [
+        "sr_returned_date_sk",
+        "sr_customer_sk",
+        "sr_store_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166125
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "store_returns",
+      "columns": [
+        "sr_cdemo_sk",
+        "sr_customer_sk",
+        "sr_item_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166126
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "catalog_returns",
+      "columns": [
+        "cr_returned_date_sk",
+        "cr_returning_customer_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.1661272
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "web_returns",
+      "columns": [
+        "wr_returned_date_sk",
+        "wr_returning_customer_sk",
+        "wr_item_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.1661282
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "item",
+      "columns": [
+        "i_category",
+        "i_manager_id",
+        "i_item_sk",
+        "i_brand_id",
+        "i_class_id",
+        "i_category_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.1661289
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "inventory",
+      "columns": [
+        "inv_item_sk",
+        "inv_warehouse_sk",
+        "inv_date_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.1661298
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "customer_address",
+      "columns": [
+        "ca_city",
+        "ca_address_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166131
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "customer_address",
+      "columns": [
+        "ca_country",
+        "ca_state",
+        "ca_address_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166131
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "customer_demographics",
+      "columns": [
+        "cd_marital_status",
+        "cd_education_status",
+        "cd_demo_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166132
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "household_demographics",
+      "columns": [
+        "hd_income_band_sk",
+        "hd_buy_potential",
+        "hd_demo_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786255323.166133
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_ship_date_sk",
+        "cs_sold_date_sk",
+        "cs_warehouse_sk",
+        "cs_ship_mode_sk",
+        "cs_call_center_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.166282
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_sold_date_sk",
+        "cs_item_sk",
+        "cs_bill_customer_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.166285
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_sold_date_sk",
+        "cs_item_sk",
+        "cs_bill_customer_sk",
+        "cs_bill_cdemo_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.166286
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_sold_date_sk",
+        "cs_item_sk",
+        "cs_warehouse_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.1662872
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_current_addr_sk",
+        "c_birth_month",
+        "c_birth_year",
+        "c_customer_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.1662889
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "item",
+      "columns": [
+        "i_category",
+        "i_manager_id",
+        "i_item_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.1662898
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "store_returns",
+      "columns": [
+        "sr_customer_sk",
+        "sr_item_sk",
+        "sr_ticket_number"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.166291
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "store_returns",
+      "columns": [
+        "sr_returned_date_sk",
+        "sr_item_sk",
+        "sr_customer_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.166293
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "store_sales",
+      "columns": [
+        "ss_customer_sk",
+        "ss_item_sk",
+        "ss_sold_date_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.166294
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_customer_sk",
+        "ss_item_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.166295
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_item_sk",
+        "ss_customer_sk",
+        "ss_store_sk",
+        "ss_cdemo_sk",
+        "ss_hdemo_sk",
+        "ss_addr_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.1662982
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "web_returns",
+      "columns": [
+        "wr_returned_date_sk",
+        "wr_item_sk",
+        "wr_reason_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.1662989
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "web_sales",
+      "columns": [
+        "ws_sold_date_sk",
+        "ws_item_sk",
+        "ws_bill_customer_sk"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786255323.1662998
+  }
+]

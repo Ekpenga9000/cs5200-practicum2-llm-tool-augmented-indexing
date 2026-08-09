@@ -44,7 +44,16 @@ class RealIndexCostEstimator:
             plan_json = cur.fetchone()[0]
             estimated_cost = plan_json[0]["Plan"]["Total Cost"]
             plan_text = json.dumps(plan_json, indent=2)
+
+        except Exception as e:
+            self.conn.rollback()
+            estimated_cost = float("inf")
+            plan_text = f"Index could not be built: {e}"
+
         finally:
-            cur.execute(f"DROP INDEX IF EXISTS {index_name};")
+            try:
+                cur.execute(f"DROP INDEX IF EXISTS {index_name};")
+            except Exception:
+                self.conn.rollback()
 
         return {"estimated_cost": estimated_cost, "plan_text": plan_text}
