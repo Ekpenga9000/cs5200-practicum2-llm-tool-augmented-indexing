@@ -1,0 +1,935 @@
+{
+  "recommended_indexes": [
+    {
+      "table": "customer_address",
+      "columns": [
+        "ca_state"
+      ]
+    },
+    {
+      "table": "catalog_returns",
+      "columns": [
+        "cr_call_center_sk"
+      ]
+    },
+    {
+      "table": "catalog_returns",
+      "columns": [
+        "cr_returning_customer_sk"
+      ]
+    },
+    {
+      "table": "catalog_returns",
+      "columns": [
+        "cr_returned_date_sk"
+      ]
+    },
+    {
+      "table": "catalog_returns",
+      "columns": [
+        "cr_item_sk",
+        "cr_order_number"
+      ]
+    },
+    {
+      "table": "catalog_returns",
+      "columns": [
+        "cr_returned_date_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_bill_cdemo_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_bill_customer_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_call_center_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_bill_cdemo_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_bill_customer_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_bill_customer_sk",
+        "cs_sold_date_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_sold_date_sk",
+        "cs_item_sk",
+        "cs_bill_customer_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_item_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_item_sk",
+        "cs_sold_date_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_promo_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_ship_customer_sk",
+        "cs_sold_date_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_ship_date_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_ship_mode_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_sold_date_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_warehouse_sk"
+      ]
+    },
+    {
+      "table": "customer_demographics",
+      "columns": [
+        "cd_marital_status",
+        "cd_education_status"
+      ]
+    },
+    {
+      "table": "catalog_returns",
+      "columns": [
+        "cr_item_sk"
+      ]
+    },
+    {
+      "table": "catalog_returns",
+      "columns": [
+        "cr_returned_date_sk"
+      ]
+    },
+    {
+      "table": "catalog_returns",
+      "columns": [
+        "cr_returning_addr_sk"
+      ]
+    },
+    {
+      "table": "catalog_returns",
+      "columns": [
+        "cr_returning_customer_sk",
+        "cr_returned_date_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_bill_customer_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_catalog_page_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_item_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_promo_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_ship_customer_sk",
+        "cs_sold_date_sk",
+        "cs_list_price"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_sold_date_sk"
+      ]
+    },
+    {
+      "table": "customer",
+      "columns": [
+        "c_current_addr_sk"
+      ]
+    },
+    {
+      "table": "customer",
+      "columns": [
+        "c_current_addr_sk",
+        "c_customer_sk"
+      ]
+    },
+    {
+      "table": "customer",
+      "columns": [
+        "c_current_addr_sk"
+      ]
+    },
+    {
+      "table": "customer_address",
+      "columns": [
+        "ca_city",
+        "ca_address_sk"
+      ]
+    },
+    {
+      "table": "customer_address",
+      "columns": [
+        "ca_country",
+        "ca_state",
+        "ca_address_sk"
+      ]
+    },
+    {
+      "table": "customer_address",
+      "columns": [
+        "ca_county",
+        "ca_address_sk"
+      ]
+    },
+    {
+      "table": "customer_address",
+      "columns": [
+        "ca_state",
+        "ca_address_sk"
+      ]
+    },
+    {
+      "table": "customer_address",
+      "columns": [
+        "ca_state",
+        "ca_city",
+        "ca_address_sk"
+      ]
+    },
+    {
+      "table": "customer",
+      "columns": [
+        "c_birth_year",
+        "c_birth_month",
+        "c_customer_sk"
+      ]
+    },
+    {
+      "table": "customer",
+      "columns": [
+        "c_birth_month"
+      ]
+    },
+    {
+      "table": "customer",
+      "columns": [
+        "c_current_cdemo_sk"
+      ]
+    },
+    {
+      "table": "customer",
+      "columns": [
+        "c_current_cdemo_sk",
+        "c_customer_sk"
+      ]
+    },
+    {
+      "table": "customer",
+      "columns": [
+        "c_current_cdemo_sk"
+      ]
+    },
+    {
+      "table": "customer_demographics",
+      "columns": [
+        "cd_gender",
+        "cd_marital_status",
+        "cd_education_status",
+        "cd_demo_sk"
+      ]
+    },
+    {
+      "table": "customer_demographics",
+      "columns": [
+        "cd_gender",
+        "cd_marital_status",
+        "cd_education_status",
+        "cd_demo_sk"
+      ]
+    },
+    {
+      "table": "customer_demographics",
+      "columns": [
+        "cd_marital_status",
+        "cd_education_status",
+        "cd_demo_sk"
+      ]
+    },
+    {
+      "table": "customer",
+      "columns": [
+        "c_current_hdemo_sk"
+      ]
+    },
+    {
+      "table": "customer",
+      "columns": [
+        "c_current_hdemo_sk"
+      ]
+    },
+    {
+      "table": "date_dim",
+      "columns": [
+        "d_date"
+      ]
+    },
+    {
+      "table": "date_dim",
+      "columns": [
+        "d_month_seq"
+      ]
+    },
+    {
+      "table": "date_dim",
+      "columns": [
+        "d_year",
+        "d_moy"
+      ]
+    },
+    {
+      "table": "date_dim",
+      "columns": [
+        "d_date",
+        "d_date_sk",
+        "d_month_seq"
+      ]
+    },
+    {
+      "table": "date_dim",
+      "columns": [
+        "d_month_seq",
+        "d_date_sk"
+      ]
+    },
+    {
+      "table": "date_dim",
+      "columns": [
+        "d_week_seq",
+        "d_date_sk"
+      ]
+    },
+    {
+      "table": "date_dim",
+      "columns": [
+        "d_week_seq",
+        "d_date_sk",
+        "d_year",
+        "d_moy",
+        "d_dom"
+      ]
+    },
+    {
+      "table": "date_dim",
+      "columns": [
+        "d_week_seq",
+        "d_year",
+        "d_date_sk"
+      ]
+    },
+    {
+      "table": "date_dim",
+      "columns": [
+        "d_year",
+        "d_date_sk"
+      ]
+    },
+    {
+      "table": "date_dim",
+      "columns": [
+        "d_year",
+        "d_moy",
+        "d_date_sk"
+      ]
+    },
+    {
+      "table": "household_demographics",
+      "columns": [
+        "hd_buy_potential",
+        "hd_demo_sk"
+      ]
+    },
+    {
+      "table": "household_demographics",
+      "columns": [
+        "hd_dep_count",
+        "hd_demo_sk"
+      ]
+    },
+    {
+      "table": "household_demographics",
+      "columns": [
+        "hd_buy_potential",
+        "hd_dep_count",
+        "hd_demo_sk"
+      ]
+    },
+    {
+      "table": "household_demographics",
+      "columns": [
+        "hd_income_band_sk",
+        "hd_demo_sk"
+      ]
+    },
+    {
+      "table": "household_demographics",
+      "columns": [
+        "hd_income_band_sk",
+        "hd_demo_sk"
+      ]
+    },
+    {
+      "table": "income_band",
+      "columns": [
+        "ib_lower_bound",
+        "ib_upper_bound",
+        "ib_income_band_sk"
+      ]
+    },
+    {
+      "table": "inventory",
+      "columns": [
+        "inv_item_sk",
+        "inv_date_sk"
+      ]
+    },
+    {
+      "table": "inventory",
+      "columns": [
+        "inv_item_sk",
+        "inv_date_sk",
+        "inv_warehouse_sk"
+      ]
+    },
+    {
+      "table": "inventory",
+      "columns": [
+        "inv_item_sk",
+        "inv_warehouse_sk",
+        "inv_date_sk"
+      ]
+    },
+    {
+      "table": "inventory",
+      "columns": [
+        "inv_warehouse_sk",
+        "inv_item_sk",
+        "inv_date_sk"
+      ]
+    },
+    {
+      "table": "item",
+      "columns": [
+        "i_brand_id",
+        "i_class_id",
+        "i_category_id",
+        "i_item_sk"
+      ]
+    },
+    {
+      "table": "item",
+      "columns": [
+        "i_category"
+      ]
+    },
+    {
+      "table": "item",
+      "columns": [
+        "i_category",
+        "i_item_sk"
+      ]
+    },
+    {
+      "table": "item",
+      "columns": [
+        "i_category",
+        "i_manager_id"
+      ]
+    },
+    {
+      "table": "item",
+      "columns": [
+        "i_category",
+        "i_manager_id",
+        "i_item_sk"
+      ]
+    },
+    {
+      "table": "item",
+      "columns": [
+        "i_manager_id",
+        "i_item_sk"
+      ]
+    },
+    {
+      "table": "item",
+      "columns": [
+        "i_manufact_id"
+      ]
+    },
+    {
+      "table": "promotion",
+      "columns": [
+        "p_channel_email",
+        "p_channel_tv",
+        "p_channel_radio",
+        "p_channel_press",
+        "p_channel_event"
+      ]
+    },
+    {
+      "table": "store_returns",
+      "columns": [
+        "sr_customer_sk"
+      ]
+    },
+    {
+      "table": "store_returns",
+      "columns": [
+        "sr_item_sk"
+      ]
+    },
+    {
+      "table": "store_returns",
+      "columns": [
+        "sr_returned_date_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_customer_sk",
+        "ss_sold_date_sk",
+        "ss_list_price"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_item_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_promo_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_store_sk"
+      ]
+    },
+    {
+      "table": "store_returns",
+      "columns": [
+        "sr_cdemo_sk"
+      ]
+    },
+    {
+      "table": "store_returns",
+      "columns": [
+        "sr_customer_sk"
+      ]
+    },
+    {
+      "table": "store_returns",
+      "columns": [
+        "sr_customer_sk",
+        "sr_item_sk",
+        "sr_ticket_number"
+      ]
+    },
+    {
+      "table": "store_returns",
+      "columns": [
+        "sr_returned_date_sk"
+      ]
+    },
+    {
+      "table": "store_returns",
+      "columns": [
+        "sr_returned_date_sk",
+        "sr_store_sk",
+        "sr_customer_sk",
+        "sr_reason_sk"
+      ]
+    },
+    {
+      "table": "store_returns",
+      "columns": [
+        "sr_returned_date_sk"
+      ]
+    },
+    {
+      "table": "store_returns",
+      "columns": [
+        "sr_store_sk"
+      ]
+    },
+    {
+      "table": "store_returns",
+      "columns": [
+        "sr_ticket_number",
+        "sr_item_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_addr_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_cdemo_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_customer_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_customer_sk",
+        "ss_sold_date_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_item_sk",
+        "ss_customer_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_hdemo_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_item_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_item_sk",
+        "ss_sold_date_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_store_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_store_sk",
+        "ss_sold_date_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_ticket_number",
+        "ss_item_sk"
+      ]
+    },
+    {
+      "table": "store",
+      "columns": [
+        "s_state",
+        "s_store_sk"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_refunded_addr_sk"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_refunded_cdemo_sk"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_returned_date_sk"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_returned_date_sk",
+        "wr_returning_customer_sk",
+        "wr_item_sk"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_item_sk",
+        "wr_order_number"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_reason_sk"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_refunded_addr_sk"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_refunded_cdemo_sk"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_returning_addr_sk",
+        "wr_returned_date_sk"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_returning_cdemo_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_bill_customer_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_bill_customer_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_bill_customer_sk",
+        "ws_sold_date_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_sold_date_sk",
+        "ws_item_sk",
+        "ws_bill_customer_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_item_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_item_sk",
+        "ws_sold_date_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_web_page_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_ship_customer_sk",
+        "ws_sold_date_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_sold_date_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_warehouse_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_web_page_sk"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_item_sk"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_order_number"
+      ]
+    },
+    {
+      "table": "web_returns",
+      "columns": [
+        "wr_returned_date_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_bill_customer_sk",
+        "ws_sold_date_sk",
+        "ws_list_price"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_item_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_order_number"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_promo_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_ship_addr_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_ship_date_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_sold_date_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_web_site_sk"
+      ]
+    }
+  ],
+  "llm_reasoning_text": "Q1: Indexes on date filter, store_sales FKs, demographics, and address state accelerate multi-condition joins.\n\nQ2: Indexes on catalog_sales FKs, item category, customer birth month, and address state speed up joins and filters.\n\nQ3: Indexes on date, store_sales FKs, item category, and customer address enable efficient join and filter execution.\n\nQ4: Three-way join between store_sales, store_returns, catalog_sales benefits from indexes on all join and date keys.\n\nQ5: Indexes on demographics filter columns, item category, store state, and date support efficient join traversal.\n\nQ6: Indexes on catalog_sales date and warehouse keys, plus item category and manager, speed up the date-range join.\n\nQ7: Indexes on date, store_returns ticket/item join keys, and store state filter accelerate the sales-returns join.\n\nQ8: Indexes on inventory item/date, catalog_sales FKs, week_seq, demographics, and item category improve this complex join.\n\nQ9: Indexes on customer FK columns, address city, income band bounds, and store_returns cdemo accelerate lookup joins.\n\nQ10: Indexes on web_returns FK columns and customer_demographics filter columns speed up the dual-cdemo join pattern.\n\nQ11: Indexes on catalog_returns date/customer/call_center keys and demographics filter columns accelerate the join chain.\n\nQ12: Indexes on catalog_sales ship date and all FK columns enable fast lookup of the date-range and dimension joins.\n\nQ13: Self-join on store_sales via ticket number benefits from indexes on item, customer, demographics, and date keys.\n\nQ14: Three-channel join (store/web/returns) benefits from indexes on all customer, item, date, and demographic FK columns.\n\nQ15: Complex multi-table join requires indexes on inventory, web/store sales FKs, item filters, and customer dimension keys.\n\nQ16: Indexes on date filter, store_sales FK columns, demographics, and address state speed up multi-condition joins.\n\nQ17: Indexes on catalog_sales FKs, date year, item category, and customer filters accelerate joins and filtering.\n\nQ18: Indexes on date year/month, item category, customer birth month, and address state accelerate join and filter operations.\n\nQ19: Indexes on ticket/item join keys and date columns speed up three-way sales/returns/catalog join with date filters.\n\nQ20: Indexes on date year, item category, demographics filter, and store_sales FK columns reduce scan and join cost.\n\nQ21: Indexes on catalog_sales date/item/warehouse and item category+manager speed up the left join and date range filter.\n\nQ22: Indexes on ticket/item composite keys and date dimensions accelerate the store_sales to store_returns join.\n\nQ23: Indexes on catalog_sales FKs, inventory composite, item category, and demographics filter support this multi-join query.\n\nQ24: Indexes on customer FK columns, address city, and income band bounds accelerate the multi-table customer lookup.\n\nQ25: Indexes on web_sales/returns join keys, demographics, and address state/country accelerate the complex web returns query.\n\nQ26: Indexes on catalog_returns date/call_center/customer and demographic filters speed up the call center returns analysis.\n\nQ27: Indexes on catalog_sales ship date and FK columns for warehouse, ship mode, and call center speed up shipping analysis.\n\nQ28: Indexes on store_sales ticket/item self-join keys, item category, and demographic filters support the item pair basket analysis.\n\nQ29: Indexes on cross-channel ticket/item keys, date, item category, and household income band support cross-channel customer analysis.\n\nQ30: Indexes on multi-channel item/customer/warehouse joins, inventory composite, item filters, and address state reduce cross-channel scan cost.\n\nQ31: Indexes accelerate the date join, store_returns grouping, and customer/demographics filtering by year, state, and attributes.\n\nQ32: Supports EXISTS subquery joins on customer_sk and date filtering, plus county and demographics lookups.\n\nQ33: Cross-channel item intersection and week-seq lookups benefit from item and date indexes across all three sales tables.\n\nQ34: Frequent items CTE and best customer subqueries need efficient date and customer lookups in store/catalog/web sales.\n\nQ35: Web returns CTE join on date, item, and address plus customer birth-year filter all benefit from targeted indexes.\n\nQ36: Quarter-over-quarter aggregation CTEs require fast date, address state, and item attribute filtering.\n\nQ37: Correlated subquery and main query both join catalog_sales to item and date_dim by item_sk and date range.\n\nQ38: Three-way INTERSECT across channels requires fast customer, date month_seq, and customer birth_month lookups.\n\nQ39.1: Inventory stddev aggregation by warehouse/item/month needs efficient joins on item, warehouse, and date.\n\nQ39.2: Same as Q39.1 with additional cov filter; same inventory/item/date indexes apply.\n\nQ40: Multi-step CTE builds customer set via item/date/channel joins then matches revenue via store address and date range.\n\nQ41: Three CTEs each join sales to item, date (by d_date), and customer filtered by birth_year and manager_id.\n\nQ42: Weekly sales pivot CTE joins store_sales to date_dim by date_sk, then filters by month_seq and store state.\n\nQ43: Large multi-table join in cross_sales CTE needs indexes on all FK columns across store_sales, returns, customer, and demographics.\n\nQ44: Revenue subqueries group store_sales by store/item over a month_seq range; store state and item manager filter outer join.\n\nQ45: Indexes on customer FKs, address state filter, demographics filters, and sales customer/date lookups accelerate EXISTS subqueries.\n\nQ46: Indexes on item category, sales item/date FKs, and return item/order FKs speed up the multi-channel UNION joins.\n\nQ47: Indexes on date, store/catalog/web FKs, promo channels, and item category support date-range and multi-channel profit aggregation joins.\n\nQ48: Indexes on catalog_returns date/customer/address FKs and address state filter speed up CTR aggregation and customer lookup.\n\nQ49: Indexes on return date/item FKs and item category/manager filter accelerate the three return-channel CTEs joined on item.\n\nQ50: Indexes on sales date/customer FKs and date_dim month_seq accelerate the three EXCEPT set-operation branches.\n\nQ51: Indexes on web_sales item/date FKs, item manufact/category filters, and date range support the correlated subquery discount comparison.\n\nQ52: Indexes on web_sales ship date/address/site FKs and order_number support the date filter, state filter, and EXISTS/NOT EXISTS subqueries."
+}

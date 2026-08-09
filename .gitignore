@@ -1,3 +1,5 @@
+pipeline/condition_a/.env
+*.env
 
 # Python cache
 __pycache__/
