@@ -6,6 +6,10 @@ function quoteIdentifier(identifier: string): string {
   return `"${identifier.replace(/"/g, '""')}"`;
 }
 
+export function quoteSchemaIdentifier(identifier: string): string {
+  return quoteIdentifier(identifier);
+}
+
 function sanitizeIdentifierPart(value: string): string {
   const cleaned = value
     .toLowerCase()
@@ -53,4 +57,17 @@ export async function createFreshSchema(client: Client, schemaName: string, sche
 export async function dropRunSchema(client: Client, runSchemaName: string): Promise<void> {
   const quotedSchemaName = quoteIdentifier(runSchemaName);
   await client.query(`DROP SCHEMA IF EXISTS ${quotedSchemaName} CASCADE;`);
+}
+
+export async function useExistingSchema(client: Client, schemaName: string): Promise<void> {
+  const quotedSchemaName = quoteIdentifier(schemaName);
+  try {
+    await client.query(
+      `SELECT 1 FROM information_schema.schemata WHERE schema_name = $1`,
+      [schemaName],
+    );
+    await client.query(`SET search_path TO ${quotedSchemaName}, public;`);
+  } catch (error) {
+    throw new Error(`Failed to use existing schema ${schemaName}: ${(error as Error).message}`);
+  }
 }

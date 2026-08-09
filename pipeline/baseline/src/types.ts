@@ -41,3 +41,5 @@ export interface BaselineRunSummary {
   outputPath: string;
   rowCount: number;
 }
+
+export type SchemaMode = 'fresh' | 'existing';
