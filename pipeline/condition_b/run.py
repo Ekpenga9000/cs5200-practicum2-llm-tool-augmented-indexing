@@ -10,6 +10,7 @@ Usage:
 No DB extension needed -- uses real temporary indexes (see real_index_estimator.py).
 """
 
+import os
 import sys
 import json
 import getpass
@@ -34,7 +35,7 @@ def main():
     with open(schema_workload_path) as f:
         schema_workload = json.load(f)
 
-    pw = getpass.getpass("Postgres password for user 'postgres': ")
+    pw = os.environ.get("PGPASSWORD") or getpass.getpass("Postgres password for user 'postgres': ")
     conn = psycopg2.connect(dbname=schema_workload["schema_name"], user="postgres",
                              password=pw, host="localhost", port=5432)
     estimator = RealIndexCostEstimator(conn)

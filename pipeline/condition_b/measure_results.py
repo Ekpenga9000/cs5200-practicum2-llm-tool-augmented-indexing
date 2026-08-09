@@ -24,6 +24,7 @@ Usage:
 
 import argparse
 import csv
+import os
 import statistics
 
 import psycopg2
@@ -84,7 +85,7 @@ def main():
     p.add_argument("--port", default="5432")
     p.add_argument("--db", default="tpcc")
     p.add_argument("--user", default="postgres")
-    p.add_argument("--password", required=True)
+    p.add_argument("--password", default=os.environ.get("PGPASSWORD"))
     p.add_argument("--runs", type=int, default=7)
     args = p.parse_args()
 

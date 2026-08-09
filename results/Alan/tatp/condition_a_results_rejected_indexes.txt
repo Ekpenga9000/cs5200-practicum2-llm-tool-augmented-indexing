@@ -1,0 +1,4 @@
+CREATE INDEX idx_subscriber_bit1_bit2 ON subscriber(bit_1, bit_2, s_id);
+CREATE INDEX idx_subscriber_bit1_vlr ON subscriber(bit_1, vlr_location);
+CREATE INDEX idx_subscriber_bit1_bit2 ON subscriber(bit_1, bit_2, s_id);
+CREATE INDEX idx_subscriber_bit1_vlr ON subscriber(bit_1, vlr_location);
