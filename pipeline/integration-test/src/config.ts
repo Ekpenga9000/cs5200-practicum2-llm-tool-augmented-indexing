@@ -6,6 +6,14 @@ import type { ConditionArtifactKind, HarnessConfig } from "./types";
 export const integrationTestRoot = path.resolve(__dirname, "..");
 export const pipelineRoot = path.resolve(integrationTestRoot, "..");
 export const workspaceRoot = path.resolve(pipelineRoot, "..");
+export const adaptersModuleDir = path.resolve(pipelineRoot, "adapters");
+export const adapterCliPath = path.resolve(adaptersModuleDir, "src", "cli.ts");
+export const integrationTsNodeBinary = path.resolve(
+  integrationTestRoot,
+  "node_modules",
+  ".bin",
+  "ts-node",
+);
 
 export const defaultInputPath = path.resolve(
   integrationTestRoot,
@@ -47,14 +55,38 @@ export const conditionBModuleDir = resolveExistingDirectory(
   workspaceRoot,
 );
 
-function readConditionArtifactKind(envName: string): ConditionArtifactKind {
+export const conditionARunScriptPath = path.resolve(
+  conditionAModuleDir,
+  "run_condition_a.py",
+);
+export const conditionBRunScriptPath = path.resolve(
+  conditionBModuleDir,
+  "run.py",
+);
+export const defaultSchemaWorkloadAdapterCommandTemplate =
+  `${integrationTsNodeBinary} ${adapterCliPath} --mode schema-workload --input {input} --to {to} --output {output}`;
+export const defaultRecommendationAdapterCommandTemplate =
+  `${integrationTsNodeBinary} ${adapterCliPath} --mode recommendation --input {input} --source {source} --output {output}`;
+export const defaultConditionACommandTemplate =
+  `python3 ${conditionARunScriptPath} {schema} {workload} {output}`;
+export const defaultConditionBCommandTemplate =
+  `python3 ${conditionBRunScriptPath} {input} {output}`;
+
+function readConditionArtifactKind(
+  envName: string,
+  defaultKind: ConditionArtifactKind,
+): ConditionArtifactKind {
   const value = process.env[envName];
 
   if (value === "results-csv") {
     return "results-csv";
   }
 
-  return "recommendation-json";
+  if (value === "recommendation-json") {
+    return "recommendation-json";
+  }
+
+  return defaultKind;
 }
 
 export function loadHarnessConfig(
@@ -73,7 +105,6 @@ export function loadHarnessConfig(
       overrides.pythonCommand ??
       process.env.INTEGRATION_TEST_PYTHON_COMMAND ??
       "python3",
-    // TODO: replace the default baseline command with the team's final CLI or direct function wrapper.
     baselineCommandTemplate:
       overrides.baselineCommandTemplate ??
       process.env.INTEGRATION_TEST_BASELINE_COMMAND ??
@@ -82,31 +113,35 @@ export function loadHarnessConfig(
       overrides.baselineCwd ??
       process.env.INTEGRATION_TEST_BASELINE_CWD ??
       baselineModuleDir,
-    // TODO: wire this to the actual Condition A invocation once the teammate's module interface is final.
     conditionACommandTemplate:
       overrides.conditionACommandTemplate ??
       process.env.INTEGRATION_TEST_CONDITION_A_COMMAND ??
-      "",
+      defaultConditionACommandTemplate,
     conditionACwd:
       overrides.conditionACwd ??
       process.env.INTEGRATION_TEST_CONDITION_A_CWD ??
       conditionAModuleDir,
     conditionAArtifactKind:
       overrides.conditionAArtifactKind ??
-      readConditionArtifactKind("INTEGRATION_TEST_CONDITION_A_ARTIFACT_KIND"),
+      readConditionArtifactKind(
+        "INTEGRATION_TEST_CONDITION_A_ARTIFACT_KIND",
+        "results-csv",
+      ),
     conditionBCommandTemplate:
       overrides.conditionBCommandTemplate ??
       process.env.INTEGRATION_TEST_CONDITION_B_COMMAND ??
-      "",
+      defaultConditionBCommandTemplate,
     conditionBCwd:
       overrides.conditionBCwd ??
       process.env.INTEGRATION_TEST_CONDITION_B_CWD ??
       conditionBModuleDir,
     conditionBArtifactKind:
       overrides.conditionBArtifactKind ??
-      readConditionArtifactKind("INTEGRATION_TEST_CONDITION_B_ARTIFACT_KIND"),
+      readConditionArtifactKind(
+        "INTEGRATION_TEST_CONDITION_B_ARTIFACT_KIND",
+        "recommendation-json",
+      ),
     measurementCommandTemplate:
-      // TODO: replace the default Python adapter once the shared measurement module exports a stable CLI or function.
       overrides.measurementCommandTemplate ??
       process.env.INTEGRATION_TEST_MEASUREMENT_COMMAND ??
       "{python} measurement.py {schema} {recommendation} {baseline} {output}",

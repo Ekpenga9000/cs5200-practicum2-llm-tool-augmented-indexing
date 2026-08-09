@@ -3,6 +3,9 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 
 import {
+  adaptersModuleDir,
+  defaultRecommendationAdapterCommandTemplate,
+  defaultSchemaWorkloadAdapterCommandTemplate,
   baselineModuleDir,
   loadHarnessConfig,
   measurementModuleDir,
@@ -610,7 +613,8 @@ async function runConditionStage(args: {
   config: HarnessConfig;
   commandTemplate: string;
   cwd: string;
-  inputPath: string;
+  commandSubstitutions: Record<string, string>;
+  validationInputPath: string;
   outputPath: string;
   artifactKind: "recommendation-json" | "results-csv";
   requireToolCallLog: boolean;
@@ -619,17 +623,14 @@ async function runConditionStage(args: {
     name: args.name,
     cwd: args.cwd,
     commandTemplate: args.commandTemplate,
-    substitutions: {
-      input: args.inputPath,
-      output: args.outputPath,
-    },
+    substitutions: args.commandSubstitutions,
   });
 
   if (execution.status !== "passed") {
     return execution;
   }
 
-  const schema = await loadJson<SchemaWorkloadInput>(args.inputPath);
+  const schema = await loadJson<SchemaWorkloadInput>(args.validationInputPath);
   const expectedQueryIds = schema.workload.map((query) => query.query_id);
   const validationErrors = await validateConditionArtifact(
     args.outputPath,
@@ -682,16 +683,36 @@ export async function runIntegrationHarness(
     config.outputDir,
     "baseline_results.csv",
   );
-  const conditionARecommendationPath = path.join(
+  const conditionAInputDir = path.join(config.outputDir, "condition_a_input");
+  const conditionARawOutputPath = path.join(
     config.outputDir,
+    "condition_a_raw",
+    "condition_a_recommendation.csv",
+  );
+  const conditionANormalizedDir = path.join(
+    config.outputDir,
+    "condition_a_normalized",
+  );
+  const conditionANormalizedRecommendationPath = path.join(
+    conditionANormalizedDir,
     "condition_a_recommendation.json",
   );
   const conditionAResultsPath = path.join(
     config.outputDir,
     "condition_a_results.csv",
   );
-  const conditionBRecommendationPath = path.join(
+  const conditionBInputDir = path.join(config.outputDir, "condition_b_input");
+  const conditionBRawOutputPath = path.join(
     config.outputDir,
+    "condition_b_raw",
+    "condition_b_recommendation.json",
+  );
+  const conditionBNormalizedDir = path.join(
+    config.outputDir,
+    "condition_b_normalized",
+  );
+  const conditionBNormalizedRecommendationPath = path.join(
+    conditionBNormalizedDir,
     "condition_b_recommendation.json",
   );
   const conditionBResultsPath = path.join(
@@ -701,6 +722,21 @@ export async function runIntegrationHarness(
   const reportPath = path.join(config.outputDir, "integration_report.md");
 
   const stageResults: StageResult[] = [];
+
+  await ensureDirectory(path.dirname(conditionARawOutputPath));
+  await ensureDirectory(path.dirname(conditionBRawOutputPath));
+
+  const conditionAInputStage = await runPluggableStage({
+    name: "Condition A input adapter",
+    cwd: adaptersModuleDir,
+    commandTemplate: defaultSchemaWorkloadAdapterCommandTemplate,
+    substitutions: {
+      input: config.inputPath,
+      to: "condition_a",
+      output: conditionAInputDir,
+    },
+  });
+  stageResults.push(conditionAInputStage);
 
   const baselineStage = await runBaselineStage({
     config,
@@ -714,31 +750,49 @@ export async function runIntegrationHarness(
     config,
     commandTemplate: config.conditionACommandTemplate,
     cwd: config.conditionACwd,
-    inputPath: config.inputPath,
-    outputPath:
-      config.conditionAArtifactKind === "results-csv"
-        ? conditionAResultsPath
-        : conditionARecommendationPath,
+    commandSubstitutions: {
+      schema: path.join(conditionAInputDir, "schema.sql"),
+      workload: path.join(conditionAInputDir, "workload.csv"),
+      output: conditionARawOutputPath,
+    },
+    validationInputPath: config.inputPath,
+    outputPath: conditionARawOutputPath,
     artifactKind: config.conditionAArtifactKind,
     requireToolCallLog: false,
   });
   stageResults.push(conditionAStage);
 
-  if (
-    conditionAStage.status === "passed" &&
-    config.conditionAArtifactKind === "recommendation-json"
-  ) {
+  const conditionAOutputStage = await runPluggableStage({
+    name: "Condition A output adapter",
+    cwd: adaptersModuleDir,
+    commandTemplate: defaultRecommendationAdapterCommandTemplate,
+    substitutions: {
+      input: conditionARawOutputPath,
+      source: "condition_a",
+      output: conditionANormalizedDir,
+    },
+  });
+  const conditionAValidatedOutputStage =
+    conditionAOutputStage.status === "passed"
+      ? await validateAndPersistStage(
+          conditionAOutputStage,
+          await validateRecommendationJson(conditionANormalizedRecommendationPath, false),
+        )
+      : conditionAOutputStage;
+  stageResults.push(conditionAValidatedOutputStage);
+
+  if (conditionAStage.status === "passed" && conditionAValidatedOutputStage.status === "passed") {
     const measurementAStage = await runMeasurementStage({
       name: "Condition A measurement",
       config,
       schemaPath: config.inputPath,
-      recommendationPath: conditionARecommendationPath,
+      recommendationPath: conditionANormalizedRecommendationPath,
       baselinePath: baselineResultsPath,
       outputCsvPath: conditionAResultsPath,
       requireToolCallLog: false,
     });
     stageResults.push(measurementAStage);
-  } else if (config.conditionAArtifactKind === "recommendation-json") {
+  } else {
     stageResults.push({
       name: "Condition A measurement",
       status: "skipped",
@@ -749,43 +803,72 @@ export async function runIntegrationHarness(
       stdout: "",
       stderr: "",
       validationErrors: [
-        "Skipped because Condition A recommendation stage did not pass.",
+        "Skipped because the Condition A adapter or recommendation stage did not pass.",
       ],
       errorMessage:
-        "Skipped because Condition A recommendation stage did not pass.",
+        "Skipped because the Condition A adapter or recommendation stage did not pass.",
     });
   }
+
+  const conditionBInputStage = await runPluggableStage({
+    name: "Condition B input adapter",
+    cwd: adaptersModuleDir,
+    commandTemplate: defaultSchemaWorkloadAdapterCommandTemplate,
+    substitutions: {
+      input: config.inputPath,
+      to: "condition_b",
+      output: conditionBInputDir,
+    },
+  });
+  stageResults.push(conditionBInputStage);
 
   const conditionBStage = await runConditionStage({
     name: "Condition B recommendation",
     config,
     commandTemplate: config.conditionBCommandTemplate,
     cwd: config.conditionBCwd,
-    inputPath: config.inputPath,
-    outputPath:
-      config.conditionBArtifactKind === "results-csv"
-        ? conditionBResultsPath
-        : conditionBRecommendationPath,
+    commandSubstitutions: {
+      input: path.join(conditionBInputDir, "schema_workload.json"),
+      output: conditionBRawOutputPath,
+    },
+    validationInputPath: config.inputPath,
+    outputPath: conditionBRawOutputPath,
     artifactKind: config.conditionBArtifactKind,
     requireToolCallLog: true,
   });
   stageResults.push(conditionBStage);
 
-  if (
-    conditionBStage.status === "passed" &&
-    config.conditionBArtifactKind === "recommendation-json"
-  ) {
+  const conditionBOutputStage = await runPluggableStage({
+    name: "Condition B output adapter",
+    cwd: adaptersModuleDir,
+    commandTemplate: defaultRecommendationAdapterCommandTemplate,
+    substitutions: {
+      input: conditionBRawOutputPath,
+      source: "condition_b",
+      output: conditionBNormalizedDir,
+    },
+  });
+  const conditionBValidatedOutputStage =
+    conditionBOutputStage.status === "passed"
+      ? await validateAndPersistStage(
+          conditionBOutputStage,
+          await validateRecommendationJson(conditionBNormalizedRecommendationPath, true),
+        )
+      : conditionBOutputStage;
+  stageResults.push(conditionBValidatedOutputStage);
+
+  if (conditionBStage.status === "passed" && conditionBValidatedOutputStage.status === "passed") {
     const measurementBStage = await runMeasurementStage({
       name: "Condition B measurement",
       config,
       schemaPath: config.inputPath,
-      recommendationPath: conditionBRecommendationPath,
+      recommendationPath: conditionBNormalizedRecommendationPath,
       baselinePath: baselineResultsPath,
       outputCsvPath: conditionBResultsPath,
       requireToolCallLog: true,
     });
     stageResults.push(measurementBStage);
-  } else if (config.conditionBArtifactKind === "recommendation-json") {
+  } else {
     stageResults.push({
       name: "Condition B measurement",
       status: "skipped",
@@ -796,10 +879,10 @@ export async function runIntegrationHarness(
       stdout: "",
       stderr: "",
       validationErrors: [
-        "Skipped because Condition B recommendation stage did not pass.",
+        "Skipped because the Condition B adapter or recommendation stage did not pass.",
       ],
       errorMessage:
-        "Skipped because Condition B recommendation stage did not pass.",
+        "Skipped because the Condition B adapter or recommendation stage did not pass.",
     });
   }
 
@@ -810,9 +893,9 @@ export async function runIntegrationHarness(
     config,
     artifacts: {
       baselineResultsPath,
-      conditionARecommendationPath,
+      conditionARecommendationPath: conditionANormalizedRecommendationPath,
       conditionAResultsPath,
-      conditionBRecommendationPath,
+      conditionBRecommendationPath: conditionBNormalizedRecommendationPath,
       conditionBResultsPath,
     },
   });
