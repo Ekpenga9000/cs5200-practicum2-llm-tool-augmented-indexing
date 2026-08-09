@@ -11,7 +11,8 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "ignoreDeprecations": "5.0",
-    "types": ["node"]
+    "types": ["node"],
+    "typeRoots": ["../integration-test/node_modules/@types"]
   },
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules"]
