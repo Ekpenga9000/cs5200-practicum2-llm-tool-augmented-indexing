@@ -9,6 +9,7 @@ Usage:
     py baseline_runner.py "F:\\个人资料\\files (2)\\tpcc_schema_workload.json" baseline_results.csv
 """
 
+import os
 import sys
 import json
 import csv
@@ -32,7 +33,7 @@ def run_baseline(schema_workload_path, out_csv_path):
     with open(schema_workload_path, encoding="utf-8") as f:
         schema_workload = json.load(f)
 
-    pw = getpass.getpass("Postgres password for user 'postgres': ")
+    pw = os.environ.get("PGPASSWORD") or getpass.getpass("Postgres password for user 'postgres': ")
     conn = psycopg2.connect(
         dbname=schema_workload["schema_name"], user="postgres",
         password=pw, host="localhost", port=5432,

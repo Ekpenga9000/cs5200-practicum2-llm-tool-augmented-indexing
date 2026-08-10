@@ -44,12 +44,13 @@ class RealIndexCostEstimator:
             plan_json = cur.fetchone()[0]
             estimated_cost = plan_json[0]["Plan"]["Total Cost"]
             plan_text = json.dumps(plan_json, indent=2)
-
         except Exception as e:
+            # A hallucinated/invalid candidate (bad column, bad SQL) must not
+            # crash the whole run -- report it as unbuildable (infinite cost)
+            # so the LLM loop can reject it and move on.
             self.conn.rollback()
             estimated_cost = float("inf")
             plan_text = f"Index could not be built: {e}"
-
         finally:
             try:
                 cur.execute(f"DROP INDEX IF EXISTS {index_name};")

@@ -1,673 +1,373 @@
 query_id,recommended_indexes,llm_reasoning_text,execution_time_ms_after,improvement_vs_baseline
-Q1,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_i_id"", ""ol_amount""]}]","## Index Recommendation Analysis
-
-### Queries Already Covered by Existing PKs (no new index needed)
-- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 — negligible
-- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 — negligible  
-- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup
-- **Q4** (item PK `i_id`): direct PK lookup
-- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup
-- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup
-- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32
-
----
-
-### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
-- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`
-- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node
-- **Cost**: 8.30 (index scan, no explicit sort needed)
-- Without this index, the query would require a seq scan + sort over thousands of customer rows
-- Also benefits Q12 marginally (the planner uses it to hash the customer side)
-
----
-
-### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
-- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`
-- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting — the planner stops at the very first row
-- **Cost: 2.69** (backward index scan + limit — dramatically better than the 24.32 cost without `o_id` in the index)
-- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)
-
----
-
-### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
-- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**
-- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` — uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 → 15.44** (96% reduction)
-- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` — index-only scan on `ol_amount`; cost **4.69** vs prior seq scan
-- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40
-- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale — no index can improve it here
-- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads
-
----
-
-### What Was Rejected
-- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.
-- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id — the 4-column version strictly dominates.
-- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.
-
----
-
-### Summary of Cost Improvements
-
-| Query | Before | After | Improvement |
-|-------|--------|-------|-------------|
-| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |
-| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |
-| Q10 | seq scan | 4.69 (index-only scan) | Large |
-| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |
-| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",0.008,0.0
-Q2,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_i_id"", ""ol_amount""]}]","## Index Recommendation Analysis
-
-### Queries Already Covered by Existing PKs (no new index needed)
-- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 — negligible
-- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 — negligible  
-- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup
-- **Q4** (item PK `i_id`): direct PK lookup
-- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup
-- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup
-- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32
-
----
-
-### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
-- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`
-- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node
-- **Cost**: 8.30 (index scan, no explicit sort needed)
-- Without this index, the query would require a seq scan + sort over thousands of customer rows
-- Also benefits Q12 marginally (the planner uses it to hash the customer side)
-
----
-
-### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
-- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`
-- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting — the planner stops at the very first row
-- **Cost: 2.69** (backward index scan + limit — dramatically better than the 24.32 cost without `o_id` in the index)
-- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)
-
----
-
-### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
-- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**
-- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` — uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 → 15.44** (96% reduction)
-- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` — index-only scan on `ol_amount`; cost **4.69** vs prior seq scan
-- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40
-- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale — no index can improve it here
-- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads
-
----
-
-### What Was Rejected
-- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.
-- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id — the 4-column version strictly dominates.
-- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.
-
----
-
-### Summary of Cost Improvements
-
-| Query | Before | After | Improvement |
-|-------|--------|-------|-------------|
-| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |
-| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |
-| Q10 | seq scan | 4.69 (index-only scan) | Large |
-| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |
-| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",0.01,-25.0
-Q3,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_i_id"", ""ol_amount""]}]","## Index Recommendation Analysis
-
-### Queries Already Covered by Existing PKs (no new index needed)
-- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 — negligible
-- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 — negligible  
-- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup
-- **Q4** (item PK `i_id`): direct PK lookup
-- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup
-- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup
-- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32
-
----
-
-### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
-- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`
-- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node
-- **Cost**: 8.30 (index scan, no explicit sort needed)
-- Without this index, the query would require a seq scan + sort over thousands of customer rows
-- Also benefits Q12 marginally (the planner uses it to hash the customer side)
-
----
-
-### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
-- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`
-- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting — the planner stops at the very first row
-- **Cost: 2.69** (backward index scan + limit — dramatically better than the 24.32 cost without `o_id` in the index)
-- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)
-
----
-
-### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
-- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**
-- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` — uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 → 15.44** (96% reduction)
-- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` — index-only scan on `ol_amount`; cost **4.69** vs prior seq scan
-- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40
-- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale — no index can improve it here
-- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads
-
----
-
-### What Was Rejected
-- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.
-- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id — the 4-column version strictly dominates.
-- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.
-
----
-
-### Summary of Cost Improvements
-
-| Query | Before | After | Improvement |
-|-------|--------|-------|-------------|
-| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |
-| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |
-| Q10 | seq scan | 4.69 (index-only scan) | Large |
-| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |
-| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",0.008,-14.29
-Q4,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_i_id"", ""ol_amount""]}]","## Index Recommendation Analysis
-
-### Queries Already Covered by Existing PKs (no new index needed)
-- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 — negligible
-- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 — negligible  
-- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup
-- **Q4** (item PK `i_id`): direct PK lookup
-- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup
-- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup
-- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32
-
----
-
-### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
-- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`
-- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node
-- **Cost**: 8.30 (index scan, no explicit sort needed)
-- Without this index, the query would require a seq scan + sort over thousands of customer rows
-- Also benefits Q12 marginally (the planner uses it to hash the customer side)
-
----
-
-### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
-- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`
-- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting — the planner stops at the very first row
-- **Cost: 2.69** (backward index scan + limit — dramatically better than the 24.32 cost without `o_id` in the index)
-- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)
-
----
-
-### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
-- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**
-- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` — uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 → 15.44** (96% reduction)
-- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` — index-only scan on `ol_amount`; cost **4.69** vs prior seq scan
-- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40
-- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale — no index can improve it here
-- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads
-
----
-
-### What Was Rejected
-- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.
-- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id — the 4-column version strictly dominates.
-- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.
-
----
-
-### Summary of Cost Improvements
-
-| Query | Before | After | Improvement |
-|-------|--------|-------|-------------|
-| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |
-| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |
-| Q10 | seq scan | 4.69 (index-only scan) | Large |
-| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |
-| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",0.01,-11.11
-Q5,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_i_id"", ""ol_amount""]}]","## Index Recommendation Analysis
-
-### Queries Already Covered by Existing PKs (no new index needed)
-- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 — negligible
-- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 — negligible  
-- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup
-- **Q4** (item PK `i_id`): direct PK lookup
-- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup
-- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup
-- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32
-
----
-
-### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
-- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`
-- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node
-- **Cost**: 8.30 (index scan, no explicit sort needed)
-- Without this index, the query would require a seq scan + sort over thousands of customer rows
-- Also benefits Q12 marginally (the planner uses it to hash the customer side)
-
----
-
-### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
-- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`
-- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting — the planner stops at the very first row
-- **Cost: 2.69** (backward index scan + limit — dramatically better than the 24.32 cost without `o_id` in the index)
-- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)
-
----
-
-### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
-- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**
-- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` — uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 → 15.44** (96% reduction)
-- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` — index-only scan on `ol_amount`; cost **4.69** vs prior seq scan
-- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40
-- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale — no index can improve it here
-- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads
-
----
-
-### What Was Rejected
-- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.
-- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id — the 4-column version strictly dominates.
-- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.
-
----
-
-### Summary of Cost Improvements
-
-| Query | Before | After | Improvement |
-|-------|--------|-------|-------------|
-| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |
-| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |
-| Q10 | seq scan | 4.69 (index-only scan) | Large |
-| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |
-| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",0.01,0.0
-Q6,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_i_id"", ""ol_amount""]}]","## Index Recommendation Analysis
-
-### Queries Already Covered by Existing PKs (no new index needed)
-- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 — negligible
-- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 — negligible  
-- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup
-- **Q4** (item PK `i_id`): direct PK lookup
-- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup
-- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup
-- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32
-
----
-
-### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
-- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`
-- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node
-- **Cost**: 8.30 (index scan, no explicit sort needed)
-- Without this index, the query would require a seq scan + sort over thousands of customer rows
-- Also benefits Q12 marginally (the planner uses it to hash the customer side)
-
----
-
-### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
-- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`
-- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting — the planner stops at the very first row
-- **Cost: 2.69** (backward index scan + limit — dramatically better than the 24.32 cost without `o_id` in the index)
-- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)
-
----
-
-### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
-- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**
-- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` — uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 → 15.44** (96% reduction)
-- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` — index-only scan on `ol_amount`; cost **4.69** vs prior seq scan
-- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40
-- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale — no index can improve it here
-- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads
-
----
-
-### What Was Rejected
-- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.
-- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id — the 4-column version strictly dominates.
-- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.
-
----
-
-### Summary of Cost Improvements
-
-| Query | Before | After | Improvement |
-|-------|--------|-------|-------------|
-| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |
-| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |
-| Q10 | seq scan | 4.69 (index-only scan) | Large |
-| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |
-| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",0.011,72.5
-Q7,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_i_id"", ""ol_amount""]}]","## Index Recommendation Analysis
-
-### Queries Already Covered by Existing PKs (no new index needed)
-- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 — negligible
-- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 — negligible  
-- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup
-- **Q4** (item PK `i_id`): direct PK lookup
-- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup
-- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup
-- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32
-
----
-
-### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
-- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`
-- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node
-- **Cost**: 8.30 (index scan, no explicit sort needed)
-- Without this index, the query would require a seq scan + sort over thousands of customer rows
-- Also benefits Q12 marginally (the planner uses it to hash the customer side)
-
----
-
-### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
-- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`
-- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting — the planner stops at the very first row
-- **Cost: 2.69** (backward index scan + limit — dramatically better than the 24.32 cost without `o_id` in the index)
-- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)
-
----
-
-### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
-- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**
-- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` — uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 → 15.44** (96% reduction)
-- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` — index-only scan on `ol_amount`; cost **4.69** vs prior seq scan
-- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40
-- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale — no index can improve it here
-- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads
-
----
-
-### What Was Rejected
-- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.
-- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id — the 4-column version strictly dominates.
-- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.
-
----
-
-### Summary of Cost Improvements
-
-| Query | Before | After | Improvement |
-|-------|--------|-------|-------------|
-| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |
-| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |
-| Q10 | seq scan | 4.69 (index-only scan) | Large |
-| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |
-| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",0.01,94.12
-Q8,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_i_id"", ""ol_amount""]}]","## Index Recommendation Analysis
-
-### Queries Already Covered by Existing PKs (no new index needed)
-- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 — negligible
-- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 — negligible  
-- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup
-- **Q4** (item PK `i_id`): direct PK lookup
-- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup
-- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup
-- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32
-
----
-
-### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
-- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`
-- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node
-- **Cost**: 8.30 (index scan, no explicit sort needed)
-- Without this index, the query would require a seq scan + sort over thousands of customer rows
-- Also benefits Q12 marginally (the planner uses it to hash the customer side)
-
----
-
-### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
-- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`
-- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting — the planner stops at the very first row
-- **Cost: 2.69** (backward index scan + limit — dramatically better than the 24.32 cost without `o_id` in the index)
-- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)
-
----
-
-### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
-- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**
-- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` — uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 → 15.44** (96% reduction)
-- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` — index-only scan on `ol_amount`; cost **4.69** vs prior seq scan
-- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40
-- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale — no index can improve it here
-- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads
-
----
-
-### What Was Rejected
-- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.
-- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id — the 4-column version strictly dominates.
-- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.
-
----
-
-### Summary of Cost Improvements
-
-| Query | Before | After | Improvement |
-|-------|--------|-------|-------------|
-| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |
-| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |
-| Q10 | seq scan | 4.69 (index-only scan) | Large |
-| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |
-| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",0.011,-22.22
-Q9,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_i_id"", ""ol_amount""]}]","## Index Recommendation Analysis
-
-### Queries Already Covered by Existing PKs (no new index needed)
-- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 — negligible
-- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 — negligible  
-- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup
-- **Q4** (item PK `i_id`): direct PK lookup
-- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup
-- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup
-- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32
-
----
-
-### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
-- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`
-- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node
-- **Cost**: 8.30 (index scan, no explicit sort needed)
-- Without this index, the query would require a seq scan + sort over thousands of customer rows
-- Also benefits Q12 marginally (the planner uses it to hash the customer side)
-
----
-
-### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
-- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`
-- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting — the planner stops at the very first row
-- **Cost: 2.69** (backward index scan + limit — dramatically better than the 24.32 cost without `o_id` in the index)
-- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)
-
----
-
-### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
-- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**
-- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` — uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 → 15.44** (96% reduction)
-- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` — index-only scan on `ol_amount`; cost **4.69** vs prior seq scan
-- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40
-- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale — no index can improve it here
-- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads
-
----
-
-### What Was Rejected
-- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.
-- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id — the 4-column version strictly dominates.
-- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.
-
----
-
-### Summary of Cost Improvements
-
-| Query | Before | After | Improvement |
-|-------|--------|-------|-------------|
-| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |
-| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |
-| Q10 | seq scan | 4.69 (index-only scan) | Large |
-| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |
-| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",0.01,-11.11
-Q10,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_i_id"", ""ol_amount""]}]","## Index Recommendation Analysis
-
-### Queries Already Covered by Existing PKs (no new index needed)
-- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 — negligible
-- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 — negligible  
-- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup
-- **Q4** (item PK `i_id`): direct PK lookup
-- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup
-- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup
-- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32
-
----
-
-### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
-- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`
-- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node
-- **Cost**: 8.30 (index scan, no explicit sort needed)
-- Without this index, the query would require a seq scan + sort over thousands of customer rows
-- Also benefits Q12 marginally (the planner uses it to hash the customer side)
-
----
-
-### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
-- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`
-- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting — the planner stops at the very first row
-- **Cost: 2.69** (backward index scan + limit — dramatically better than the 24.32 cost without `o_id` in the index)
-- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)
-
----
-
-### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
-- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**
-- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` — uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 → 15.44** (96% reduction)
-- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` — index-only scan on `ol_amount`; cost **4.69** vs prior seq scan
-- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40
-- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale — no index can improve it here
-- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads
-
----
-
-### What Was Rejected
-- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.
-- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id — the 4-column version strictly dominates.
-- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.
-
----
-
-### Summary of Cost Improvements
-
-| Query | Before | After | Improvement |
-|-------|--------|-------|-------------|
-| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |
-| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |
-| Q10 | seq scan | 4.69 (index-only scan) | Large |
-| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |
-| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",0.016,-33.33
-Q11,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_i_id"", ""ol_amount""]}]","## Index Recommendation Analysis
-
-### Queries Already Covered by Existing PKs (no new index needed)
-- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 — negligible
-- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 — negligible  
-- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup
-- **Q4** (item PK `i_id`): direct PK lookup
-- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup
-- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup
-- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32
-
----
-
-### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
-- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`
-- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node
-- **Cost**: 8.30 (index scan, no explicit sort needed)
-- Without this index, the query would require a seq scan + sort over thousands of customer rows
-- Also benefits Q12 marginally (the planner uses it to hash the customer side)
-
----
-
-### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
-- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`
-- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting — the planner stops at the very first row
-- **Cost: 2.69** (backward index scan + limit — dramatically better than the 24.32 cost without `o_id` in the index)
-- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)
-
----
-
-### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
-- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**
-- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` — uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 → 15.44** (96% reduction)
-- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` — index-only scan on `ol_amount`; cost **4.69** vs prior seq scan
-- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40
-- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale — no index can improve it here
-- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads
-
----
-
-### What Was Rejected
-- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.
-- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id — the 4-column version strictly dominates.
-- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.
-
----
-
-### Summary of Cost Improvements
-
-| Query | Before | After | Improvement |
-|-------|--------|-------|-------------|
-| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |
-| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |
-| Q10 | seq scan | 4.69 (index-only scan) | Large |
-| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |
-| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",0.055,17.91
-Q12,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""order_line"", ""columns"": [""ol_w_id"", ""ol_d_id"", ""ol_o_id"", ""ol_i_id"", ""ol_amount""]}]","## Index Recommendation Analysis
-
-### Queries Already Covered by Existing PKs (no new index needed)
-- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 — negligible
-- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 — negligible  
-- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup
-- **Q4** (item PK `i_id`): direct PK lookup
-- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup
-- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup
-- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32
-
----
-
-### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
-- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`
-- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node
-- **Cost**: 8.30 (index scan, no explicit sort needed)
-- Without this index, the query would require a seq scan + sort over thousands of customer rows
-- Also benefits Q12 marginally (the planner uses it to hash the customer side)
-
----
-
-### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
-- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`
-- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting — the planner stops at the very first row
-- **Cost: 2.69** (backward index scan + limit — dramatically better than the 24.32 cost without `o_id` in the index)
-- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)
-
----
-
-### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
-- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**
-- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` — uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 → 15.44** (96% reduction)
-- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` — index-only scan on `ol_amount`; cost **4.69** vs prior seq scan
-- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40
-- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale — no index can improve it here
-- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads
-
----
-
-### What Was Rejected
-- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.
-- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id — the 4-column version strictly dominates.
-- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.
-
----
-
-### Summary of Cost Improvements
-
-| Query | Before | After | Improvement |
-|-------|--------|-------|-------------|
-| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |
-| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |
-| Q10 | seq scan | 4.69 (index-only scan) | Large |
-| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |
-| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",101.915,-15.58
+Q1,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""stock"", ""columns"": [""s_w_id"", ""s_quantity"", ""s_i_id""]}]","
+## Index Tuning Analysis — TPC-C Workload
+
+### Queries Already Served by Existing PKs (no new index needed)
+- **Q1** → `warehouse_pkey (w_id)` — point lookup, trivial.
+- **Q2** → `district_pkey (d_w_id, d_id)` — point lookup, trivial.
+- **Q3** → `customer_pkey (c_w_id, c_d_id, c_id)` — point lookup, trivial.
+- **Q4** → `item_pkey (i_id)` — point lookup, trivial.
+- **Q5** → `stock_pkey (s_w_id, s_i_id)` — point lookup, trivial.
+- **Q8** → `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` — prefix scan, trivial.
+- **Q9** → `new_order_pkey (no_w_id, no_d_id, no_o_id)` — index-only scan with LIMIT 1; cost = **0.32**, already optimal.
+- **Q10** → `order_line_pkey` — prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.
+
+### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
+- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).
+- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.
+- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.
+
+### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
+- **Targets**: Q7 (and supports Q12 join lookups).
+- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.
+- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.
+
+### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`
+- **Targets**: Q11.
+- **Q11** joins `order_line` (range scan on `ol_o_id` 980–999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650–678** — a ~63% reduction.
+- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.
+
+### Q12 — No new index recommended
+Q12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.
+",0.005,0.0
+Q2,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""stock"", ""columns"": [""s_w_id"", ""s_quantity"", ""s_i_id""]}]","
+## Index Tuning Analysis — TPC-C Workload
+
+### Queries Already Served by Existing PKs (no new index needed)
+- **Q1** → `warehouse_pkey (w_id)` — point lookup, trivial.
+- **Q2** → `district_pkey (d_w_id, d_id)` — point lookup, trivial.
+- **Q3** → `customer_pkey (c_w_id, c_d_id, c_id)` — point lookup, trivial.
+- **Q4** → `item_pkey (i_id)` — point lookup, trivial.
+- **Q5** → `stock_pkey (s_w_id, s_i_id)` — point lookup, trivial.
+- **Q8** → `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` — prefix scan, trivial.
+- **Q9** → `new_order_pkey (no_w_id, no_d_id, no_o_id)` — index-only scan with LIMIT 1; cost = **0.32**, already optimal.
+- **Q10** → `order_line_pkey` — prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.
+
+### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
+- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).
+- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.
+- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.
+
+### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
+- **Targets**: Q7 (and supports Q12 join lookups).
+- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.
+- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.
+
+### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`
+- **Targets**: Q11.
+- **Q11** joins `order_line` (range scan on `ol_o_id` 980–999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650–678** — a ~63% reduction.
+- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.
+
+### Q12 — No new index recommended
+Q12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.
+",0.006,14.29
+Q3,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""stock"", ""columns"": [""s_w_id"", ""s_quantity"", ""s_i_id""]}]","
+## Index Tuning Analysis — TPC-C Workload
+
+### Queries Already Served by Existing PKs (no new index needed)
+- **Q1** → `warehouse_pkey (w_id)` — point lookup, trivial.
+- **Q2** → `district_pkey (d_w_id, d_id)` — point lookup, trivial.
+- **Q3** → `customer_pkey (c_w_id, c_d_id, c_id)` — point lookup, trivial.
+- **Q4** → `item_pkey (i_id)` — point lookup, trivial.
+- **Q5** → `stock_pkey (s_w_id, s_i_id)` — point lookup, trivial.
+- **Q8** → `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` — prefix scan, trivial.
+- **Q9** → `new_order_pkey (no_w_id, no_d_id, no_o_id)` — index-only scan with LIMIT 1; cost = **0.32**, already optimal.
+- **Q10** → `order_line_pkey` — prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.
+
+### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
+- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).
+- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.
+- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.
+
+### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
+- **Targets**: Q7 (and supports Q12 join lookups).
+- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.
+- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.
+
+### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`
+- **Targets**: Q11.
+- **Q11** joins `order_line` (range scan on `ol_o_id` 980–999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650–678** — a ~63% reduction.
+- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.
+
+### Q12 — No new index recommended
+Q12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.
+",0.007,12.5
+Q4,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""stock"", ""columns"": [""s_w_id"", ""s_quantity"", ""s_i_id""]}]","
+## Index Tuning Analysis — TPC-C Workload
+
+### Queries Already Served by Existing PKs (no new index needed)
+- **Q1** → `warehouse_pkey (w_id)` — point lookup, trivial.
+- **Q2** → `district_pkey (d_w_id, d_id)` — point lookup, trivial.
+- **Q3** → `customer_pkey (c_w_id, c_d_id, c_id)` — point lookup, trivial.
+- **Q4** → `item_pkey (i_id)` — point lookup, trivial.
+- **Q5** → `stock_pkey (s_w_id, s_i_id)` — point lookup, trivial.
+- **Q8** → `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` — prefix scan, trivial.
+- **Q9** → `new_order_pkey (no_w_id, no_d_id, no_o_id)` — index-only scan with LIMIT 1; cost = **0.32**, already optimal.
+- **Q10** → `order_line_pkey` — prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.
+
+### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
+- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).
+- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.
+- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.
+
+### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
+- **Targets**: Q7 (and supports Q12 join lookups).
+- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.
+- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.
+
+### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`
+- **Targets**: Q11.
+- **Q11** joins `order_line` (range scan on `ol_o_id` 980–999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650–678** — a ~63% reduction.
+- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.
+
+### Q12 — No new index recommended
+Q12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.
+",0.006,0.0
+Q5,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""stock"", ""columns"": [""s_w_id"", ""s_quantity"", ""s_i_id""]}]","
+## Index Tuning Analysis — TPC-C Workload
+
+### Queries Already Served by Existing PKs (no new index needed)
+- **Q1** → `warehouse_pkey (w_id)` — point lookup, trivial.
+- **Q2** → `district_pkey (d_w_id, d_id)` — point lookup, trivial.
+- **Q3** → `customer_pkey (c_w_id, c_d_id, c_id)` — point lookup, trivial.
+- **Q4** → `item_pkey (i_id)` — point lookup, trivial.
+- **Q5** → `stock_pkey (s_w_id, s_i_id)` — point lookup, trivial.
+- **Q8** → `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` — prefix scan, trivial.
+- **Q9** → `new_order_pkey (no_w_id, no_d_id, no_o_id)` — index-only scan with LIMIT 1; cost = **0.32**, already optimal.
+- **Q10** → `order_line_pkey` — prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.
+
+### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
+- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).
+- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.
+- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.
+
+### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
+- **Targets**: Q7 (and supports Q12 join lookups).
+- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.
+- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.
+
+### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`
+- **Targets**: Q11.
+- **Q11** joins `order_line` (range scan on `ol_o_id` 980–999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650–678** — a ~63% reduction.
+- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.
+
+### Q12 — No new index recommended
+Q12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.
+",0.009,-28.57
+Q6,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""stock"", ""columns"": [""s_w_id"", ""s_quantity"", ""s_i_id""]}]","
+## Index Tuning Analysis — TPC-C Workload
+
+### Queries Already Served by Existing PKs (no new index needed)
+- **Q1** → `warehouse_pkey (w_id)` — point lookup, trivial.
+- **Q2** → `district_pkey (d_w_id, d_id)` — point lookup, trivial.
+- **Q3** → `customer_pkey (c_w_id, c_d_id, c_id)` — point lookup, trivial.
+- **Q4** → `item_pkey (i_id)` — point lookup, trivial.
+- **Q5** → `stock_pkey (s_w_id, s_i_id)` — point lookup, trivial.
+- **Q8** → `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` — prefix scan, trivial.
+- **Q9** → `new_order_pkey (no_w_id, no_d_id, no_o_id)` — index-only scan with LIMIT 1; cost = **0.32**, already optimal.
+- **Q10** → `order_line_pkey` — prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.
+
+### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
+- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).
+- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.
+- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.
+
+### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
+- **Targets**: Q7 (and supports Q12 join lookups).
+- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.
+- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.
+
+### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`
+- **Targets**: Q11.
+- **Q11** joins `order_line` (range scan on `ol_o_id` 980–999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650–678** — a ~63% reduction.
+- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.
+
+### Q12 — No new index recommended
+Q12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.
+",0.009,95.71
+Q7,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""stock"", ""columns"": [""s_w_id"", ""s_quantity"", ""s_i_id""]}]","
+## Index Tuning Analysis — TPC-C Workload
+
+### Queries Already Served by Existing PKs (no new index needed)
+- **Q1** → `warehouse_pkey (w_id)` — point lookup, trivial.
+- **Q2** → `district_pkey (d_w_id, d_id)` — point lookup, trivial.
+- **Q3** → `customer_pkey (c_w_id, c_d_id, c_id)` — point lookup, trivial.
+- **Q4** → `item_pkey (i_id)` — point lookup, trivial.
+- **Q5** → `stock_pkey (s_w_id, s_i_id)` — point lookup, trivial.
+- **Q8** → `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` — prefix scan, trivial.
+- **Q9** → `new_order_pkey (no_w_id, no_d_id, no_o_id)` — index-only scan with LIMIT 1; cost = **0.32**, already optimal.
+- **Q10** → `order_line_pkey` — prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.
+
+### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
+- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).
+- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.
+- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.
+
+### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
+- **Targets**: Q7 (and supports Q12 join lookups).
+- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.
+- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.
+
+### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`
+- **Targets**: Q11.
+- **Q11** joins `order_line` (range scan on `ol_o_id` 980–999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650–678** — a ~63% reduction.
+- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.
+
+### Q12 — No new index recommended
+Q12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.
+",0.007,96.3
+Q8,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""stock"", ""columns"": [""s_w_id"", ""s_quantity"", ""s_i_id""]}]","
+## Index Tuning Analysis — TPC-C Workload
+
+### Queries Already Served by Existing PKs (no new index needed)
+- **Q1** → `warehouse_pkey (w_id)` — point lookup, trivial.
+- **Q2** → `district_pkey (d_w_id, d_id)` — point lookup, trivial.
+- **Q3** → `customer_pkey (c_w_id, c_d_id, c_id)` — point lookup, trivial.
+- **Q4** → `item_pkey (i_id)` — point lookup, trivial.
+- **Q5** → `stock_pkey (s_w_id, s_i_id)` — point lookup, trivial.
+- **Q8** → `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` — prefix scan, trivial.
+- **Q9** → `new_order_pkey (no_w_id, no_d_id, no_o_id)` — index-only scan with LIMIT 1; cost = **0.32**, already optimal.
+- **Q10** → `order_line_pkey` — prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.
+
+### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
+- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).
+- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.
+- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.
+
+### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
+- **Targets**: Q7 (and supports Q12 join lookups).
+- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.
+- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.
+
+### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`
+- **Targets**: Q11.
+- **Q11** joins `order_line` (range scan on `ol_o_id` 980–999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650–678** — a ~63% reduction.
+- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.
+
+### Q12 — No new index recommended
+Q12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.
+",0.008,20.0
+Q9,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""stock"", ""columns"": [""s_w_id"", ""s_quantity"", ""s_i_id""]}]","
+## Index Tuning Analysis — TPC-C Workload
+
+### Queries Already Served by Existing PKs (no new index needed)
+- **Q1** → `warehouse_pkey (w_id)` — point lookup, trivial.
+- **Q2** → `district_pkey (d_w_id, d_id)` — point lookup, trivial.
+- **Q3** → `customer_pkey (c_w_id, c_d_id, c_id)` — point lookup, trivial.
+- **Q4** → `item_pkey (i_id)` — point lookup, trivial.
+- **Q5** → `stock_pkey (s_w_id, s_i_id)` — point lookup, trivial.
+- **Q8** → `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` — prefix scan, trivial.
+- **Q9** → `new_order_pkey (no_w_id, no_d_id, no_o_id)` — index-only scan with LIMIT 1; cost = **0.32**, already optimal.
+- **Q10** → `order_line_pkey` — prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.
+
+### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
+- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).
+- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.
+- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.
+
+### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
+- **Targets**: Q7 (and supports Q12 join lookups).
+- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.
+- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.
+
+### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`
+- **Targets**: Q11.
+- **Q11** joins `order_line` (range scan on `ol_o_id` 980–999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650–678** — a ~63% reduction.
+- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.
+
+### Q12 — No new index recommended
+Q12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.
+",0.007,0.0
+Q10,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""stock"", ""columns"": [""s_w_id"", ""s_quantity"", ""s_i_id""]}]","
+## Index Tuning Analysis — TPC-C Workload
+
+### Queries Already Served by Existing PKs (no new index needed)
+- **Q1** → `warehouse_pkey (w_id)` — point lookup, trivial.
+- **Q2** → `district_pkey (d_w_id, d_id)` — point lookup, trivial.
+- **Q3** → `customer_pkey (c_w_id, c_d_id, c_id)` — point lookup, trivial.
+- **Q4** → `item_pkey (i_id)` — point lookup, trivial.
+- **Q5** → `stock_pkey (s_w_id, s_i_id)` — point lookup, trivial.
+- **Q8** → `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` — prefix scan, trivial.
+- **Q9** → `new_order_pkey (no_w_id, no_d_id, no_o_id)` — index-only scan with LIMIT 1; cost = **0.32**, already optimal.
+- **Q10** → `order_line_pkey` — prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.
+
+### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
+- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).
+- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.
+- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.
+
+### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
+- **Targets**: Q7 (and supports Q12 join lookups).
+- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.
+- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.
+
+### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`
+- **Targets**: Q11.
+- **Q11** joins `order_line` (range scan on `ol_o_id` 980–999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650–678** — a ~63% reduction.
+- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.
+
+### Q12 — No new index recommended
+Q12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.
+",0.016,-6.67
+Q11,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""stock"", ""columns"": [""s_w_id"", ""s_quantity"", ""s_i_id""]}]","
+## Index Tuning Analysis — TPC-C Workload
+
+### Queries Already Served by Existing PKs (no new index needed)
+- **Q1** → `warehouse_pkey (w_id)` — point lookup, trivial.
+- **Q2** → `district_pkey (d_w_id, d_id)` — point lookup, trivial.
+- **Q3** → `customer_pkey (c_w_id, c_d_id, c_id)` — point lookup, trivial.
+- **Q4** → `item_pkey (i_id)` — point lookup, trivial.
+- **Q5** → `stock_pkey (s_w_id, s_i_id)` — point lookup, trivial.
+- **Q8** → `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` — prefix scan, trivial.
+- **Q9** → `new_order_pkey (no_w_id, no_d_id, no_o_id)` — index-only scan with LIMIT 1; cost = **0.32**, already optimal.
+- **Q10** → `order_line_pkey` — prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.
+
+### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
+- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).
+- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.
+- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.
+
+### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
+- **Targets**: Q7 (and supports Q12 join lookups).
+- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.
+- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.
+
+### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`
+- **Targets**: Q11.
+- **Q11** joins `order_line` (range scan on `ol_o_id` 980–999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650–678** — a ~63% reduction.
+- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.
+
+### Q12 — No new index recommended
+Q12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.
+",0.494,-96.03
+Q12,"[{""table"": ""customer"", ""columns"": [""c_w_id"", ""c_d_id"", ""c_last"", ""c_first""]}, {""table"": ""orders"", ""columns"": [""o_w_id"", ""o_d_id"", ""o_c_id"", ""o_id""]}, {""table"": ""stock"", ""columns"": [""s_w_id"", ""s_quantity"", ""s_i_id""]}]","
+## Index Tuning Analysis — TPC-C Workload
+
+### Queries Already Served by Existing PKs (no new index needed)
+- **Q1** → `warehouse_pkey (w_id)` — point lookup, trivial.
+- **Q2** → `district_pkey (d_w_id, d_id)` — point lookup, trivial.
+- **Q3** → `customer_pkey (c_w_id, c_d_id, c_id)` — point lookup, trivial.
+- **Q4** → `item_pkey (i_id)` — point lookup, trivial.
+- **Q5** → `stock_pkey (s_w_id, s_i_id)` — point lookup, trivial.
+- **Q8** → `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` — prefix scan, trivial.
+- **Q9** → `new_order_pkey (no_w_id, no_d_id, no_o_id)` — index-only scan with LIMIT 1; cost = **0.32**, already optimal.
+- **Q10** → `order_line_pkey` — prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.
+
+### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`
+- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).
+- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.
+- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.
+
+### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`
+- **Targets**: Q7 (and supports Q12 join lookups).
+- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.
+- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.
+
+### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`
+- **Targets**: Q11.
+- **Q11** joins `order_line` (range scan on `ol_o_id` 980–999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650–678** — a ~63% reduction.
+- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.
+
+### Q12 — No new index recommended
+Q12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.
+",191.503,3.28
