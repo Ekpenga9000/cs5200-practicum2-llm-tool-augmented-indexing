@@ -11,11 +11,17 @@ so candidate indexes can be tried and discarded instantly with zero DDL cost
 
 import json
 
+from psycopg2 import sql
+
 
 class HypoPGCostEstimator:
-    def __init__(self, conn):
+    def __init__(self, conn, schema=None):
         self.conn = conn
         self.conn.autocommit = True
+        # See RealIndexCostEstimator: resolve tables in a non-public schema.
+        if schema:
+            with self.conn.cursor() as cur:
+                cur.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(schema)))
 
     def estimate_cost(self, candidate_index: dict, query_text: str) -> dict:
         """

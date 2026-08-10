@@ -14,11 +14,21 @@ run.py: just swap the import.
 import json
 import hashlib
 
+from psycopg2 import sql
+
 
 class RealIndexCostEstimator:
-    def __init__(self, conn):
+    def __init__(self, conn, schema=None):
         self.conn = conn
         self.conn.autocommit = True
+        # Make candidate tables resolvable when they live in a per-benchmark
+        # schema rather than "public". Without this, CREATE INDEX / EXPLAIN fails
+        # with "relation does not exist" and the LLM silently gets estimated_cost
+        # = inf for every candidate. A non-existent schema in the path is ignored
+        # by Postgres, so this is a no-op when the tables ARE in public.
+        if schema:
+            with self.conn.cursor() as cur:
+                cur.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(schema)))
 
     def estimate_cost(self, candidate_index: dict, query_text: str) -> dict:
         """

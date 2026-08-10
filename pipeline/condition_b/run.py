@@ -43,7 +43,9 @@ def main():
         host=os.getenv("PGHOST", "localhost"),
         port=int(os.getenv("PGPORT", "5432")),
     )
-    estimator = RealIndexCostEstimator(conn)
+    # Pass the target schema so the estimator can resolve tables outside
+    # "public" (PGSCHEMA overrides; defaults to the workload's schema_name).
+    estimator = RealIndexCostEstimator(conn, schema=os.getenv("PGSCHEMA", schema_workload["schema_name"]))
     client = anthropic.Anthropic()
 
     recommendation = run_condition_b(schema_workload, estimator, client)
