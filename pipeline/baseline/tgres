@@ -1,0 +1,30 @@
+                 List of relations
+ Schema |          Name          | Type  |  Owner   
+--------+------------------------+-------+----------
+ dsb    | call_center            | table | postgres
+ dsb    | catalog_page           | table | postgres
+ dsb    | catalog_returns        | table | postgres
+ dsb    | catalog_sales          | table | postgres
+ dsb    | customer               | table | postgres
+ dsb    | customer_address       | table | postgres
+ dsb    | customer_demographics  | table | postgres
+ dsb    | date_dim               | table | postgres
+ dsb    | dbgen_version          | table | postgres
+ dsb    | household_demographics | table | postgres
+ dsb    | income_band            | table | postgres
+ dsb    | inventory              | table | postgres
+ dsb    | item                   | table | postgres
+ dsb    | promotion              | table | postgres
+ dsb    | reason                 | table | postgres
+ dsb    | ship_mode              | table | postgres
+ dsb    | store                  | table | postgres
+ dsb    | store_returns          | table | postgres
+ dsb    | store_sales            | table | postgres
+ dsb    | time_dim               | table | postgres
+ dsb    | warehouse              | table | postgres
+ dsb    | web_page               | table | postgres
+ dsb    | web_returns            | table | postgres
+ dsb    | web_sales              | table | postgres
+ dsb    | web_site               | table | postgres
+(25 rows)
+
