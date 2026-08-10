@@ -231,6 +231,9 @@ def run_condition_b(schema_workload: dict, cost_estimator, client, max_iteration
                         note="final recommendation",
                     )
 
+                # Spec 6.2: the log must record whether each candidate was
+                # accepted OR rejected. Every distinct candidate the LLM tried
+                # via estimate_index_cost but did not finalize is a rejection.
                 tried_keys = {
                     (
                         e["candidate_index"]["table"],

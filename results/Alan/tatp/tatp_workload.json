@@ -1,0 +1,78 @@
+{
+  "schema_name": "tatp",
+  "ddl_file": "tatp_schema.sql",
+  "queries": [
+    {
+      "query_id": "Q1",
+      "transaction": "Get-Subscriber-Data",
+      "query_text": "SELECT * FROM subscriber WHERE s_id = 55123;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q2",
+      "transaction": "Get-Subscriber-By-Number",
+      "query_text": "SELECT s_id, bit_1, msc_location FROM subscriber WHERE sub_nbr = '000000000055123';",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q3",
+      "transaction": "Get-Access-Data",
+      "query_text": "SELECT data1, data2, data3, data4 FROM access_info WHERE s_id = 55123 AND ai_type = 1;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q4",
+      "transaction": "Get-Special-Facility",
+      "query_text": "SELECT is_active, data_a FROM special_facility WHERE s_id = 55123 AND sf_type = 1;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q5",
+      "transaction": "Get-New-Destination",
+      "query_text": "SELECT cf.numberx FROM special_facility sf JOIN call_forwarding cf ON sf.s_id = cf.s_id AND sf.sf_type = cf.sf_type WHERE sf.s_id = 55123 AND sf.sf_type = 1 AND sf.is_active = 1 AND cf.start_time <= 8 AND cf.end_time > 8;",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q6",
+      "transaction": "Count-Inactive-Facilities",
+      "query_text": "SELECT COUNT(*) FROM special_facility WHERE is_active = 0 AND sf_type = 2;",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q7",
+      "transaction": "Subscribers-By-VLR-Range",
+      "query_text": "SELECT s_id, msc_location FROM subscriber WHERE vlr_location BETWEEN 1000 AND 2000;",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q8",
+      "transaction": "Bit-Filter-Low-Id",
+      "query_text": "SELECT s_id FROM subscriber WHERE bit_1 = 1 AND bit_2 = 0 AND s_id < 100;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q9",
+      "transaction": "Call-Forwarding-By-Starttime",
+      "query_text": "SELECT start_time, COUNT(*) FROM call_forwarding WHERE start_time = 8 GROUP BY start_time;",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q10",
+      "transaction": "Active-Facilities-By-VLR",
+      "query_text": "SELECT s.vlr_location, COUNT(*) FROM subscriber s JOIN special_facility sf ON s.s_id = sf.s_id WHERE sf.is_active = 1 AND s.bit_1 = 1 GROUP BY s.vlr_location ORDER BY COUNT(*) DESC LIMIT 10;",
+      "complexity_tier": "Complex"
+    },
+    {
+      "query_id": "Q11",
+      "transaction": "Three-Table-MSC-Range",
+      "query_text": "SELECT s.s_id, COUNT(cf.numberx) FROM subscriber s JOIN special_facility sf ON s.s_id = sf.s_id JOIN call_forwarding cf ON sf.s_id = cf.s_id AND sf.sf_type = cf.sf_type WHERE s.msc_location BETWEEN 1 AND 500 AND sf.is_active = 1 GROUP BY s.s_id ORDER BY COUNT(cf.numberx) DESC LIMIT 10;",
+      "complexity_tier": "Complex"
+    },
+    {
+      "query_id": "Q12",
+      "transaction": "Access-Data-By-Byte",
+      "query_text": "SELECT ai.ai_type, AVG(ai.data1) FROM access_info ai JOIN subscriber s ON ai.s_id = s.s_id WHERE s.byte2_1 > 128 GROUP BY ai.ai_type ORDER BY ai.ai_type;",
+      "complexity_tier": "Complex"
+    }
+  ]
+}

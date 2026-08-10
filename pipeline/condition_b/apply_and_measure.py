@@ -69,7 +69,7 @@ def run(schema_workload_path, recommendation_path, baseline_csv_path, out_csv_pa
 
     baseline_times = load_baseline(baseline_csv_path)
 
-    pw = getpass.getpass("Postgres password for user 'postgres': ")
+    pw = os.environ.get("PGPASSWORD") or getpass.getpass("Postgres password for user 'postgres': ")
     conn = psycopg2.connect(
         dbname=schema_workload["schema_name"], user="postgres",
         password=pw, host="localhost", port=5432,

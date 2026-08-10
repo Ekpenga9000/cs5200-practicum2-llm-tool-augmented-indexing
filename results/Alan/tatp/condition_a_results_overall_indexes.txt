@@ -1,0 +1,7 @@
+CREATE INDEX idx_call_forwarding_sid_sftype_times ON call_forwarding(s_id, sf_type, start_time, end_time, numberx);
+CREATE INDEX idx_call_forwarding_start_time ON call_forwarding(start_time);
+CREATE INDEX idx_special_facility_is_active_sf_type ON special_facility(is_active, sf_type);
+CREATE INDEX idx_special_facility_sid_active ON special_facility(s_id, is_active, sf_type);
+CREATE INDEX idx_subscriber_msc_location ON subscriber(msc_location);
+CREATE INDEX idx_subscriber_sub_nbr ON subscriber(sub_nbr);
+CREATE INDEX idx_subscriber_vlr_location ON subscriber(vlr_location);
