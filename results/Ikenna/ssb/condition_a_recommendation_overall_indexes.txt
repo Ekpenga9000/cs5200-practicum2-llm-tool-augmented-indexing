@@ -1,0 +1,18 @@
+CREATE INDEX idx_date_dim_year ON date_dim(d_year);
+CREATE INDEX idx_date_dim_yearmonthnum ON date_dim(d_yearmonthnum);
+CREATE INDEX idx_date_dim_year_weeknum ON date_dim(d_year, d_weeknuminyear);
+CREATE INDEX idx_date_dim_yearmonth ON date_dim(d_yearmonth);
+CREATE INDEX idx_lineorder_orderdate ON lineorder(lo_orderdate, lo_discount, lo_quantity, lo_extendedprice);
+CREATE INDEX idx_lineorder_custkey ON lineorder(lo_custkey);
+CREATE INDEX idx_lineorder_suppkey ON lineorder(lo_suppkey);
+CREATE INDEX idx_lineorder_partkey ON lineorder(lo_partkey);
+CREATE INDEX idx_lineorder_composite_full ON lineorder(lo_orderdate, lo_custkey, lo_suppkey, lo_partkey, lo_revenue, lo_supplycost);
+CREATE INDEX idx_customer_region ON customer(c_region, c_custkey, c_nation, c_city);
+CREATE INDEX idx_customer_nation ON customer(c_nation, c_custkey, c_city);
+CREATE INDEX idx_customer_city ON customer(c_city, c_custkey);
+CREATE INDEX idx_supplier_region ON supplier(s_region, s_suppkey, s_nation, s_city);
+CREATE INDEX idx_supplier_nation ON supplier(s_nation, s_suppkey, s_city);
+CREATE INDEX idx_supplier_city ON supplier(s_city, s_suppkey);
+CREATE INDEX idx_part_category ON part(p_category, p_partkey, p_brand, p_mfgr);
+CREATE INDEX idx_part_brand ON part(p_brand, p_partkey, p_mfgr);
+CREATE INDEX idx_part_mfgr ON part(p_mfgr, p_partkey, p_category, p_brand);

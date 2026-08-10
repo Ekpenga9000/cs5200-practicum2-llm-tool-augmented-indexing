@@ -1,0 +1,71 @@
+{
+  "schema_name": "ssb",
+  "schema_ddl": "SET search_path TO public;",
+  "workload": [
+    {
+      "query_id": "Q1.1",
+      "complexity_tier": "Simple",
+      "query_text": "SELECT SUM(lo_extendedprice * lo_discount) AS revenue\nFROM lineorder\nJOIN date_dim ON lo_orderdate = d_datekey\nWHERE d_year = 1993\n  AND lo_discount BETWEEN 1 AND 3\n  AND lo_quantity < 25;"
+    },
+    {
+      "query_id": "Q1.2",
+      "complexity_tier": "Simple",
+      "query_text": "SELECT SUM(lo_extendedprice * lo_discount) AS revenue\nFROM lineorder\nJOIN date_dim ON lo_orderdate = d_datekey\nWHERE d_yearmonthnum = 199401\n  AND lo_discount BETWEEN 4 AND 6\n  AND lo_quantity BETWEEN 26 AND 35;"
+    },
+    {
+      "query_id": "Q1.3",
+      "complexity_tier": "Simple",
+      "query_text": "SELECT SUM(lo_extendedprice * lo_discount) AS revenue\nFROM lineorder\nJOIN date_dim ON lo_orderdate = d_datekey\nWHERE d_weeknuminyear = 6\n  AND d_year = 1994\n  AND lo_discount BETWEEN 5 AND 7\n  AND lo_quantity BETWEEN 26 AND 35;"
+    },
+    {
+      "query_id": "Q2.1",
+      "complexity_tier": "Medium",
+      "query_text": "SELECT SUM(lo_revenue) AS revenue, d_year, p_brand\nFROM lineorder\nJOIN date_dim ON lo_orderdate = d_datekey\nJOIN part ON lo_partkey = p_partkey\nJOIN supplier ON lo_suppkey = s_suppkey\nWHERE p_category = 'MFGR#12'\n  AND s_region = 'AMERICA'\nGROUP BY d_year, p_brand\nORDER BY d_year, p_brand;"
+    },
+    {
+      "query_id": "Q2.2",
+      "complexity_tier": "Medium",
+      "query_text": "SELECT SUM(lo_revenue) AS revenue, d_year, p_brand\nFROM lineorder\nJOIN date_dim ON lo_orderdate = d_datekey\nJOIN part ON lo_partkey = p_partkey\nJOIN supplier ON lo_suppkey = s_suppkey\nWHERE p_brand BETWEEN 'MFGR#2221' AND 'MFGR#2228'\n  AND s_region = 'ASIA'\nGROUP BY d_year, p_brand\nORDER BY d_year, p_brand;"
+    },
+    {
+      "query_id": "Q2.3",
+      "complexity_tier": "Medium",
+      "query_text": "SELECT SUM(lo_revenue) AS revenue, d_year, p_brand\nFROM lineorder\nJOIN date_dim ON lo_orderdate = d_datekey\nJOIN part ON lo_partkey = p_partkey\nJOIN supplier ON lo_suppkey = s_suppkey\nWHERE p_brand = 'MFGR#2221'\n  AND s_region = 'EUROPE'\nGROUP BY d_year, p_brand\nORDER BY d_year, p_brand;"
+    },
+    {
+      "query_id": "Q3.1",
+      "complexity_tier": "Medium",
+      "query_text": "SELECT c_nation, s_nation, d_year,\n       SUM(lo_revenue) AS revenue\nFROM lineorder\nJOIN customer ON lo_custkey = c_custkey\nJOIN supplier ON lo_suppkey = s_suppkey\nJOIN date_dim ON lo_orderdate = d_datekey\nWHERE c_region = 'ASIA'\n  AND s_region = 'ASIA'\n  AND d_year BETWEEN 1992 AND 1997\nGROUP BY c_nation, s_nation, d_year\nORDER BY d_year ASC, revenue DESC;"
+    },
+    {
+      "query_id": "Q3.2",
+      "complexity_tier": "Medium",
+      "query_text": "SELECT c_city, s_city, d_year,\n       SUM(lo_revenue) AS revenue\nFROM lineorder\nJOIN customer ON lo_custkey = c_custkey\nJOIN supplier ON lo_suppkey = s_suppkey\nJOIN date_dim ON lo_orderdate = d_datekey\nWHERE c_nation = 'UNITED STATES'\n  AND s_nation = 'UNITED STATES'\n  AND d_year BETWEEN 1992 AND 1997\nGROUP BY c_city, s_city, d_year\nORDER BY d_year ASC, revenue DESC;"
+    },
+    {
+      "query_id": "Q3.3",
+      "complexity_tier": "Medium",
+      "query_text": "SELECT c_city, s_city, d_year,\n       SUM(lo_revenue) AS revenue\nFROM lineorder\nJOIN customer ON lo_custkey = c_custkey\nJOIN supplier ON lo_suppkey = s_suppkey\nJOIN date_dim ON lo_orderdate = d_datekey\nWHERE c_city IN ('UNITED KI1', 'UNITED KI5')\n  AND s_city IN ('UNITED KI1', 'UNITED KI5')\n  AND d_year BETWEEN 1992 AND 1997\nGROUP BY c_city, s_city, d_year\nORDER BY d_year ASC, revenue DESC;"
+    },
+    {
+      "query_id": "Q3.4",
+      "complexity_tier": "Medium",
+      "query_text": "SELECT c_city, s_city, d_year,\n       SUM(lo_revenue) AS revenue\nFROM lineorder\nJOIN customer ON lo_custkey = c_custkey\nJOIN supplier ON lo_suppkey = s_suppkey\nJOIN date_dim ON lo_orderdate = d_datekey\nWHERE c_city IN ('UNITED KI1', 'UNITED KI5')\n  AND s_city IN ('UNITED KI1', 'UNITED KI5')\n  AND d_yearmonth = 'Dec1997'\nGROUP BY c_city, s_city, d_year\nORDER BY d_year ASC, revenue DESC;"
+    },
+    {
+      "query_id": "Q4.1",
+      "complexity_tier": "Complex",
+      "query_text": "SELECT d_year, c_nation,\n       SUM(lo_revenue - lo_supplycost) AS profit\nFROM lineorder\nJOIN customer ON lo_custkey = c_custkey\nJOIN supplier ON lo_suppkey = s_suppkey\nJOIN part ON lo_partkey = p_partkey\nJOIN date_dim ON lo_orderdate = d_datekey\nWHERE c_region = 'AMERICA'\n  AND s_region = 'AMERICA'\n  AND p_mfgr IN ('MFGR#1', 'MFGR#2')\nGROUP BY d_year, c_nation\nORDER BY d_year, c_nation;"
+    },
+    {
+      "query_id": "Q4.2",
+      "complexity_tier": "Complex",
+      "query_text": "SELECT d_year, s_nation, p_category,\n       SUM(lo_revenue - lo_supplycost) AS profit\nFROM lineorder\nJOIN customer ON lo_custkey = c_custkey\nJOIN supplier ON lo_suppkey = s_suppkey\nJOIN part ON lo_partkey = p_partkey\nJOIN date_dim ON lo_orderdate = d_datekey\nWHERE c_region = 'AMERICA'\n  AND s_region = 'AMERICA'\n  AND d_year IN (1997, 1998)\n  AND p_mfgr IN ('MFGR#1', 'MFGR#2')\nGROUP BY d_year, s_nation, p_category\nORDER BY d_year, s_nation, p_category;"
+    },
+    {
+      "query_id": "Q4.3",
+      "complexity_tier": "Complex",
+      "query_text": "SELECT d_year, s_city, p_brand,\n       SUM(lo_revenue - lo_supplycost) AS profit\nFROM lineorder\nJOIN customer ON lo_custkey = c_custkey\nJOIN supplier ON lo_suppkey = s_suppkey\nJOIN part ON lo_partkey = p_partkey\nJOIN date_dim ON lo_orderdate = d_datekey\nWHERE c_region = 'AMERICA'\n  AND s_nation = 'UNITED STATES'\n  AND d_year IN (1997, 1998)\n  AND p_category = 'MFGR#14'\nGROUP BY d_year, s_city, p_brand\nORDER BY d_year, s_city, p_brand;"
+    }
+  ]
+}
