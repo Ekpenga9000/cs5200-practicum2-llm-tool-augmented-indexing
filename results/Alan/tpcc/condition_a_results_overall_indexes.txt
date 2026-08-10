@@ -1,0 +1,4 @@
+CREATE INDEX idx_customer_w_d_last_first ON customer(c_w_id, c_d_id, c_last, c_first);
+CREATE INDEX idx_order_line_w_d_o ON order_line(ol_w_id, ol_d_id, ol_o_id);
+CREATE INDEX idx_orders_w_d_c ON orders(o_w_id, o_d_id, o_c_id, o_id);
+CREATE INDEX idx_stock_quantity ON stock(s_w_id, s_i_id, s_quantity);

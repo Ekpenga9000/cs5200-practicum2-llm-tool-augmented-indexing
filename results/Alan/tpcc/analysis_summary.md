@@ -1,74 +1,85 @@
 # TPC-C (Schema 1) — Within-Schema Analysis
 
-**Owner:** Alan · **Condition:** B (Tool-Augmented) vs. no-index baseline
+**Owner:** Alan · Baseline (PK/FK only) vs. Condition A (no-tool) vs. Condition B (tool-augmented)
 
 ## Setup
 
-Deterministic reduced-scale TPC-C (`load_tpcc_data.py`, seed 42): 1 warehouse,
-10 districts, 300 customers/district (~3,000 customers), 100 items, ~10
-orders/customer (~30,000 orders, ~300k order-lines). Baseline = PK/FK indexes
-only, measured on a freshly rebuilt DB. Each query timed as the median of 7
-`EXPLAIN ANALYZE` runs (warm cache). Condition B ran a tool-augmented loop of
-**35 logged tool calls (23 candidates proposed, 9 rejected, 3 accepted)** and
-finalized 3 indexes:
+Standard TPC-C at the smallest real scale factor — **1 warehouse** (`load_tpcc_data.py`,
+seed 42, COPY-loaded): 10 districts, 3,000 customers/district (30,000), **100,000
+items**, **100,000 stock**, 30,000 orders, ~300,000 order-lines. (An earlier toy
+sub-scale with only 100 items/stock made every query sub-microsecond and index
+effects pure noise; this is the corrected, standard-cardinality run.) Same LLM
+(`claude-sonnet-4-6`) for both conditions; only tool access differs. Every number
+is the **median of 7 `EXPLAIN ANALYZE` runs after one warm-up**, measured on a
+freshly reset (PK/FK-only) DB before each condition's indexes are applied, so
+baseline / A / B are directly comparable.
 
-- `customer (c_w_id, c_d_id, c_last, c_first)`
-- `orders (o_w_id, o_d_id, o_c_id, o_id)`
-- `order_line (ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`
+## Recommended indexes
 
-## Results (baseline → Condition B, ms)
+| Table | Condition A (no-tool) | Condition B (tool) |
+|---|---|---|
+| customer | `(c_w_id, c_d_id, c_last, c_first)` | same |
+| orders | `(o_w_id, o_d_id, o_c_id, o_id)` | same |
+| order_line | `(ol_w_id, ol_d_id, ol_o_id)` | *(not recommended)* |
+| stock | `(s_w_id, s_i_id, s_quantity)` | `(s_w_id, s_quantity, s_i_id)` — range col in the middle |
 
-| Query | Tier | Baseline | Cond B | Δ | Note |
-|---|---|---|---|---|---|
-| Q1 | Simple | 0.008 | 0.008 | 0.0% | noise |
-| Q2 | Simple | 0.008 | 0.010 | −25.0% | noise |
-| Q3 | Simple | 0.007 | 0.008 | −14.3% | noise |
-| Q4 | Simple | 0.009 | 0.010 | −11.1% | noise |
-| Q5 | Simple | 0.010 | 0.010 | 0.0% | noise |
-| Q6 | Medium | 0.040 | 0.011 | **+72.5%** | customer index (c_last lookup + c_first sort) |
-| Q7 | Medium | 0.170 | 0.010 | **+94.1%** | orders index (equality filter + o_id DESC LIMIT 1) |
-| Q8 | Simple | 0.009 | 0.011 | −22.2% | noise |
-| Q9 | Medium | 0.009 | 0.010 | −11.1% | noise |
-| Q10 | Medium | 0.012 | 0.016 | −33.3% | noise |
-| Q11 | Complex | 0.067 | 0.055 | **+17.9%** | order_line index helps the join |
-| Q12 | Complex | 88.174 | 101.915 | **−15.6%** | regression (see below) |
+## Results (median ms; improvement vs. baseline)
+
+| Query | Tier | Baseline | Cond A | Cond B |
+|---|---|---|---|---|
+| Q1 | Simple | 0.005 | 0.006 (−20%) | 0.005 (0%) |
+| Q2 | Simple | 0.007 | 0.008 (−14%) | 0.006 (+14%) |
+| Q3 | Simple | 0.008 | 0.008 (0%) | 0.007 (+13%) |
+| Q4 | Simple | 0.006 | 0.006 (0%) | 0.006 (0%) |
+| Q5 | Simple | 0.007 | 0.007 (0%) | 0.009 (−29%) |
+| Q6 | Medium | 0.210 | **0.009 (+96%)** | **0.009 (+96%)** |
+| Q7 | Medium | 0.189 | **0.009 (+95%)** | **0.007 (+96%)** |
+| Q8 | Simple | 0.010 | 0.009 (+10%) | 0.008 (+20%) |
+| Q9 | Medium | 0.007 | 0.009 (−29%) | 0.007 (0%) |
+| Q10 | Medium | 0.015 | 0.013 (+13%) | 0.016 (−7%) |
+| Q11 | Complex | 0.252 | **0.219 (+13%)** | **0.494 (−96%)** |
+| Q12 | Complex | 197.99 | 187.39 (+5%) | 191.50 (+3%) |
 
 ## What we found
 
-**Signal vs. noise.** At the smallest scale factor most queries run in tens of
-microseconds — at or below timer resolution — so the ±10–30% swings on Q1–Q5,
-Q8–Q10 are jitter, not real effects. Only four queries carry measurable signal:
-Q6, Q7, Q11 (wins) and Q12 (regression).
+**Signal vs. noise.** Q1–Q5 / Q8–Q10 are single-row PK/point lookups that run in
+microseconds no matter what — no index can speed up a primary-key lookup, so
+their ±10–30% swings are timer jitter, not effects. The four queries with real
+signal are Q6, Q7 (mid-tier lookups), and Q11, Q12 (the complex ones).
 
-**Where tool-augmentation clearly helped.** The two mid-tier point-lookup
-queries improved most: Q7 (−94%, `orders` composite index directly serves the
-`WHERE` + `ORDER BY ... LIMIT 1`) and Q6 (−73%, `customer` index serves the
-`c_last` predicate and the `c_first` sort with no separate sort step). Q11's
-join saw a smaller but real ~18% gain. In every case the index *column order*
-matched the query's access pattern — exactly what the cost tool was used to
-verify before finalizing.
+**The easy wins are a tie.** Q6 and Q7 both improved ~95% under *both* conditions,
+because both models recommended the *identical* `customer` and `orders` indexes
+whose column order matches the `WHERE` + `ORDER BY … LIMIT 1` access pattern. The
+right index is obvious from the query text alone, so tool access adds nothing.
 
-**Where it hurt — the headline caveat.** Q12, the only query with a
-non-trivial absolute cost (~88 ms), got **~14 ms slower** under Condition B.
-That single regression outweighs the combined microsecond-level gains of every
-other query. The `order_line (…, ol_i_id, ol_amount)` index changed Q12's plan
-(memoized per-order index-only lookups) into a shape the planner costed lower
-per-candidate but that runs slower end-to-end. This is the key lesson: the tool
-estimates cost **per candidate against a single query**, so it can miss
-whole-workload / plan-shape interactions — tool access reduced the index set
-(it rejected the bloated 9-column covering index an earlier run had accepted)
-but did **not** prevent a net regression on the workload's dominant query.
+**Where tool access actively HURT — Q11.** This is the headline. The no-tool
+Condition A *improved* Q11 by ~13%, but the tool-augmented Condition B *regressed*
+it by ~96% (0.25 → 0.49 ms, roughly 2× slower than doing nothing). The cause is in
+the index choices: A recommended `stock(s_w_id, s_i_id, s_quantity)` plus an
+`order_line` index, which supports Q11's join on `s_i_id`. B instead recommended
+`stock(s_w_id, s_quantity, s_i_id)` — putting the *range* predicate `s_quantity < 15`
+ahead of the join key `s_i_id`, which the planner still picks but which executes a
+worse plan — and B dropped the `order_line` index entirely. So the tool's
+per-candidate cost checks led B to a **worse** index design here, not a better one.
 
-**Net.** By tier: Simple = no real change; Medium = strong wins on the two
-index-friendly lookups; Complex = one modest win (Q11) and one meaningful
-regression (Q12). Because Q12 dominates absolute runtime, **total workload time
-went up under Condition B** even though 3 of the 4 signal-bearing queries
-improved.
+**The dominant query is a wash.** Q12 (~198 ms, the only query where absolute time
+matters) came out ~+3–5% for both conditions — within run-to-run variance for a
+parallel, memoized plan at this size. Neither condition meaningfully helped or hurt it.
+
+**Net.** On the corrected, standard-scale TPC-C workload, tool access did **not**
+improve index quality: it tied on the obvious wins (Q6/Q7), was a wash on the
+dominant query (Q12), and **actively regressed Q11** by choosing a poorer stock
+index column order and omitting an order_line index. If anything, the no-tool
+Condition A produced the marginally better index set on this OLTP workload.
 
 ## Caveats / notes for the cross-schema comparison
 
-- Wall-clock deltas below ~0.1 ms should be treated as ties; the planner
-  **cost** estimates (in `tool_call_log.json`) are the more stable signal at
-  this scale.
-- **Condition A (no-tool) comparison pending** — to be filled in once Sylfhen's
-  Condition A module is run on this same DB/dump, so A vs. B is apples-to-apples.
+- Wall-clock deltas below ~0.05 ms are ties; the planner **cost** estimates
+  (in `tool_call_log.json`) are the more stable signal for the point queries.
+- Q12 (~190 ms, parallel + memoized) has real run-to-run variance; its ±3–5%
+  should be read as "no change."
+- **TPC-C takeaway for Week 4:** on this OLTP workload the tool did not help and
+  in one case hurt (Q11) — a concrete example of tool-augmented reasoning
+  producing a *worse* decision (bad index column order) than the no-tool baseline.
+  Whether that pattern holds on analytical / large-scan workloads is the Week-4
+  cross-domain question.
