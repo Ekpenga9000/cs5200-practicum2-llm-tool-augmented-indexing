@@ -8,3 +8,8 @@ __pycache__/
 
 # Environment files
 .env
+
+node_modules/
+pipeline/baseline/scripts/tpch-data/
+pipeline/baseline/scripts/tpcds-data/tpcds-kit
+pipeline/baseline/scripts/tpcds-data/generated/

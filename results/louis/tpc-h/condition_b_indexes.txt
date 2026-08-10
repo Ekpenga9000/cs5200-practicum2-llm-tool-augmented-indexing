@@ -1,0 +1,15 @@
+CREATE INDEX idx_lineitem_l_shipdate_l_returnflag_l_linestatus_l_quantity_l_extendedprice_l_discount_l_tax ON LINEITEM (L_SHIPDATE, L_RETURNFLAG, L_LINESTATUS, L_QUANTITY, L_EXTENDEDPRICE, L_DISCOUNT, L_TAX);
+CREATE INDEX idx_lineitem_l_orderkey_l_suppkey_l_partkey_l_extendedprice_l_discount_l_quantity ON LINEITEM (L_ORDERKEY, L_SUPPKEY, L_PARTKEY, L_EXTENDEDPRICE, L_DISCOUNT, L_QUANTITY);
+CREATE INDEX idx_lineitem_l_receiptdate_l_commitdate_l_shipdate_l_shipmode_l_orderkey ON LINEITEM (L_RECEIPTDATE, L_COMMITDATE, L_SHIPDATE, L_SHIPMODE, L_ORDERKEY);
+CREATE INDEX idx_lineitem_l_returnflag_l_orderkey_l_extendedprice_l_discount ON LINEITEM (L_RETURNFLAG, L_ORDERKEY, L_EXTENDEDPRICE, L_DISCOUNT);
+CREATE INDEX idx_lineitem_l_suppkey_l_orderkey_l_extendedprice_l_discount ON LINEITEM (L_SUPPKEY, L_ORDERKEY, L_EXTENDEDPRICE, L_DISCOUNT);
+CREATE INDEX idx_lineitem_l_partkey_l_suppkey_l_shipdate_l_quantity ON LINEITEM (L_PARTKEY, L_SUPPKEY, L_SHIPDATE, L_QUANTITY);
+CREATE INDEX idx_orders_o_orderdate_o_custkey_o_orderkey_o_shippriority_o_totalprice ON ORDERS (O_ORDERDATE, O_CUSTKEY, O_ORDERKEY, O_SHIPPRIORITY, O_TOTALPRICE);
+CREATE INDEX idx_orders_o_custkey_o_orderkey_o_orderstatus ON ORDERS (O_CUSTKEY, O_ORDERKEY, O_ORDERSTATUS);
+CREATE INDEX idx_part_p_size_p_type_p_partkey_p_mfgr ON PART (P_SIZE, P_TYPE, P_PARTKEY, P_MFGR);
+CREATE INDEX idx_part_p_brand_p_container_p_partkey_p_type_p_size ON PART (P_BRAND, P_CONTAINER, P_PARTKEY, P_TYPE, P_SIZE);
+CREATE INDEX idx_part_p_name ON PART (P_NAME);
+CREATE INDEX idx_partsupp_ps_partkey_ps_suppkey_ps_supplycost_ps_availqty ON PARTSUPP (PS_PARTKEY, PS_SUPPKEY, PS_SUPPLYCOST, PS_AVAILQTY);
+CREATE INDEX idx_supplier_s_nationkey_s_suppkey_s_acctbal ON SUPPLIER (S_NATIONKEY, S_SUPPKEY, S_ACCTBAL);
+CREATE INDEX idx_customer_c_mktsegment_c_custkey_c_nationkey ON CUSTOMER (C_MKTSEGMENT, C_CUSTKEY, C_NATIONKEY);
+CREATE INDEX idx_nation_n_name_n_nationkey_n_regionkey ON NATION (N_NAME, N_NATIONKEY, N_REGIONKEY);
