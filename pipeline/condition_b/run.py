@@ -36,8 +36,13 @@ def main():
         schema_workload = json.load(f)
 
     pw = os.environ.get("PGPASSWORD") or getpass.getpass("Postgres password for user 'postgres': ")
-    conn = psycopg2.connect(dbname=schema_workload["schema_name"], user="postgres",
-                             password=pw, host="localhost", port=5432)
+    conn = psycopg2.connect(
+        dbname=schema_workload["schema_name"],
+        user=os.getenv("PGUSER", "postgres"),
+        password=pw,
+        host=os.getenv("PGHOST", "localhost"),
+        port=int(os.getenv("PGPORT", "5432")),
+    )
     estimator = RealIndexCostEstimator(conn)
     client = anthropic.Anthropic()
 

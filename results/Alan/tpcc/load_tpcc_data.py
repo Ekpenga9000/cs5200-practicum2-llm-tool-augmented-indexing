@@ -19,6 +19,9 @@ query sub-microsecond, so index effects were pure noise):
 Fully deterministic (seeded `random`, fixed base date), so every teammate
 regenerates byte-identical data. Loads in a few seconds via COPY.
 
+Connection is configurable via PGUSER / PGPASSWORD / PGHOST / PGPORT env vars
+(falls back to a prompt for the password).
+
 Usage:
     py -m pip install psycopg2-binary
     psql -U postgres -c "CREATE DATABASE tpcc;"
@@ -27,6 +30,7 @@ Usage:
 """
 
 import io
+import os
 import random
 import getpass
 from datetime import datetime, timedelta
@@ -87,10 +91,19 @@ def copy_into(cur, table, buf):
     cur.copy_from(buf, table, sep="\t", null=r"\N", columns=COLS[table])
 
 
+def connect():
+    pw = os.environ.get("PGPASSWORD") or getpass.getpass("Postgres password for user 'postgres': ")
+    return psycopg2.connect(
+        dbname="tpcc",
+        user=os.getenv("PGUSER", "postgres"),
+        password=pw,
+        host=os.getenv("PGHOST", "localhost"),
+        port=int(os.getenv("PGPORT", "5432")),
+    )
+
+
 def load():
-    pw = getpass.getpass("Postgres password for user 'postgres': ")
-    conn = psycopg2.connect(dbname="tpcc", user="postgres", password=pw,
-                            host="localhost", port=5432)
+    conn = connect()
     conn.autocommit = False
     cur = conn.cursor()
     dist = "x" * 24  # dummy district-info / stock-dist string
