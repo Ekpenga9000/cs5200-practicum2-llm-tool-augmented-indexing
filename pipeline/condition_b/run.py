@@ -43,7 +43,7 @@ def main():
         host=os.getenv("PGHOST", "localhost"),
         port=int(os.getenv("PGPORT", "5432")),
     )
-    estimator = RealIndexCostEstimator(conn)
+    estimator = RealIndexCostEstimator(conn, schema_workload["schema_name"])
     client = anthropic.Anthropic()
 
     recommendation = run_condition_b(schema_workload, estimator, client)

@@ -1,0 +1,17 @@
+{
+  "name": "pipeline-adapters",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "adapt": "node ../integration-test/node_modules/ts-node/dist/bin.js src/cli.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "smoke-test": "node ../integration-test/node_modules/ts-node/dist/bin.js src/scripts/smoke-test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  }
+}

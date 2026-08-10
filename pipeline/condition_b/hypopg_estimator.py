@@ -12,10 +12,17 @@ so candidate indexes can be tried and discarded instantly with zero DDL cost
 import json
 
 
+def quote_identifier(identifier: str) -> str:
+    return '"{}"'.format(identifier.replace('"', '""'))
+
+
 class HypoPGCostEstimator:
-    def __init__(self, conn):
+    def __init__(self, conn, schema_name: str):
         self.conn = conn
         self.conn.autocommit = True
+        self.schema_name = schema_name
+        with self.conn.cursor() as cur:
+            cur.execute(f"SET search_path TO {quote_identifier(self.schema_name)}, public")
 
     def estimate_cost(self, candidate_index: dict, query_text: str) -> dict:
         """

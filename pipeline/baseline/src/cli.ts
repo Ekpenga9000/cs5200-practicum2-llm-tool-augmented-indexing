@@ -5,6 +5,7 @@ import { runBaselineModule } from './pipeline';
 interface CliArgs {
   input?: string;
   output?: string;
+  schemaMode?: 'fresh' | 'existing';
   help?: boolean;
 }
 
@@ -31,6 +32,17 @@ function parseArgs(argv: string[]): CliArgs {
       continue;
     }
 
+    if (token === '--schema-mode') {
+      const value = argv[index + 1];
+      if (value !== 'fresh' && value !== 'existing') {
+        throw new Error("--schema-mode must be 'fresh' or 'existing'.");
+      }
+
+      args.schemaMode = value;
+      index += 1;
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${token}`);
   }
 
@@ -38,7 +50,7 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 function printUsage(): void {
-  console.log('Usage: npm run baseline -- --input ./path/to/schema-workload.json --output ./path/to/baseline_results.csv');
+  console.log('Usage: npm run baseline -- --input ./path/to/schema-workload.json --output ./path/to/baseline_results.csv [--schema-mode fresh|existing]');
 }
 
 async function main(): Promise<void> {
@@ -56,7 +68,7 @@ async function main(): Promise<void> {
 
   const inputPath = path.resolve(process.cwd(), args.input);
   const outputPath = path.resolve(process.cwd(), args.output);
-  const summary = await runBaselineModule(inputPath, outputPath);
+  const summary = await runBaselineModule(inputPath, outputPath, args.schemaMode ?? 'fresh');
 
   console.log(`Baseline complete for ${summary.schemaName}: wrote ${summary.rowCount} rows to ${summary.outputPath}`);
 }
