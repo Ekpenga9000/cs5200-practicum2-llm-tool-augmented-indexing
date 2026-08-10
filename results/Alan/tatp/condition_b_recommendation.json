@@ -1,0 +1,939 @@
+{
+  "schema_name": "tatp",
+  "condition": "B",
+  "recommended_indexes": [
+    {
+      "table": "subscriber",
+      "columns": [
+        "sub_nbr"
+      ]
+    },
+    {
+      "table": "subscriber",
+      "columns": [
+        "vlr_location",
+        "s_id",
+        "msc_location"
+      ]
+    },
+    {
+      "table": "subscriber",
+      "columns": [
+        "bit_1",
+        "bit_2",
+        "s_id"
+      ]
+    },
+    {
+      "table": "subscriber",
+      "columns": [
+        "bit_1",
+        "s_id",
+        "vlr_location"
+      ]
+    },
+    {
+      "table": "subscriber",
+      "columns": [
+        "msc_location",
+        "s_id"
+      ]
+    },
+    {
+      "table": "subscriber",
+      "columns": [
+        "byte2_1",
+        "s_id"
+      ]
+    },
+    {
+      "table": "special_facility",
+      "columns": [
+        "is_active",
+        "sf_type"
+      ]
+    },
+    {
+      "table": "call_forwarding",
+      "columns": [
+        "start_time"
+      ]
+    }
+  ],
+  "llm_reasoning_text": "After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:\n\n---\n\n### subscriber(sub_nbr)\n- **Targets**: Q2\n- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** \u2014 a ~248\u00d7 improvement. `sub_nbr` is a high-frequency TATP lookup pattern.\n\n---\n\n### subscriber(vlr_location, s_id, msc_location)\n- **Targets**: Q7 (primary), provides covering columns for join-side lookups\n- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 \u2014 a 3-6\u00d7 improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.\n\n---\n\n### subscriber(bit_1, bit_2, s_id)\n- **Targets**: Q8\n- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81\u20138.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.\n\n---\n\n### subscriber(bit_1, s_id, vlr_location)\n- **Targets**: Q10 (primary), Q11 (secondary)\n- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.\n\n---\n\n### subscriber(msc_location, s_id)\n- **Targets**: Q11 (primary)\n- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** \u2014 a 1.7\u00d7 improvement.\n\n---\n\n### subscriber(byte2_1, s_id)\n- **Targets**: Q12\n- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.\n\n---\n\n### special_facility(is_active, sf_type)\n- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5\n- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).\n\n---\n\n### call_forwarding(start_time)\n- **Targets**: Q9\n- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.\n\n---\n\n### Indexes deliberately NOT recommended:\n- **special_facility(is_active, s_id, sf_type)**: Tested \u2014 cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.\n- **access_info(s_id, ai_type, data1)**: Not needed \u2014 Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.\n- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.\n",
+  "tool_call_log": [
+    {
+      "step": 1,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "sub_nbr"
+        ]
+      },
+      "estimated_cost": 8.44,
+      "decision": "proposed",
+      "note": "query_id=Q2",
+      "timestamp": 1786297713.7183099
+    },
+    {
+      "step": 2,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "vlr_location"
+        ]
+      },
+      "estimated_cost": 1148.09,
+      "decision": "proposed",
+      "note": "query_id=Q7",
+      "timestamp": 1786297713.790962
+    },
+    {
+      "step": 3,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "sf_type"
+        ]
+      },
+      "estimated_cost": 449.27,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1786297713.9509046
+    },
+    {
+      "step": 4,
+      "candidate_index": {
+        "table": "call_forwarding",
+        "columns": [
+          "start_time"
+        ]
+      },
+      "estimated_cost": 3140.64,
+      "decision": "proposed",
+      "note": "query_id=Q9",
+      "timestamp": 1786297714.1836948
+    },
+    {
+      "step": 5,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "bit_2",
+          "s_id"
+        ]
+      },
+      "estimated_cost": 8.81,
+      "decision": "proposed",
+      "note": "query_id=Q8",
+      "timestamp": 1786297714.2804878
+    },
+    {
+      "step": 6,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "vlr_location"
+        ]
+      },
+      "estimated_cost": 8885.61,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786297720.8908415
+    },
+    {
+      "step": 7,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active"
+        ]
+      },
+      "estimated_cost": 8885.65,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786297721.0939462
+    },
+    {
+      "step": 8,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "msc_location",
+          "bit_1"
+        ]
+      },
+      "estimated_cost": 10141.31,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1786297721.168375
+    },
+    {
+      "step": 9,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "byte2_1"
+        ]
+      },
+      "estimated_cost": 7517.78,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1786297721.2419097
+    },
+    {
+      "step": 10,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "vlr_location",
+          "s_id",
+          "msc_location"
+        ]
+      },
+      "estimated_cost": 386.92,
+      "decision": "proposed",
+      "note": "query_id=Q7",
+      "timestamp": 1786297721.3214977
+    },
+    {
+      "step": 11,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "s_id"
+        ]
+      },
+      "estimated_cost": 8879.25,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786297729.198489
+    },
+    {
+      "step": 12,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "s_id"
+        ]
+      },
+      "estimated_cost": 11750.36,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1786297729.4013667
+    },
+    {
+      "step": 13,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "vlr_location"
+        ]
+      },
+      "estimated_cost": 8876.19,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786297729.4979815
+    },
+    {
+      "step": 14,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "msc_location",
+          "s_id"
+        ]
+      },
+      "estimated_cost": 9510.18,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1786297729.5710933
+    },
+    {
+      "step": 15,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "byte2_1",
+          "s_id"
+        ]
+      },
+      "estimated_cost": 6478.44,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1786297729.6568918
+    },
+    {
+      "step": 16,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "s_id",
+          "sf_type"
+        ]
+      },
+      "estimated_cost": 8889.75,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786297737.4758244
+    },
+    {
+      "step": 17,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "s_id",
+          "sf_type"
+        ]
+      },
+      "estimated_cost": 11790.55,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1786297737.6452544
+    },
+    {
+      "step": 18,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "s_id",
+          "vlr_location"
+        ]
+      },
+      "estimated_cost": 8474.33,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786297737.7350113
+    },
+    {
+      "step": 19,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "msc_location",
+          "s_id",
+          "bit_1"
+        ]
+      },
+      "estimated_cost": 9514.03,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1786297737.812256
+    },
+    {
+      "step": 20,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "sf_type"
+        ]
+      },
+      "estimated_cost": 11633.99,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1786297737.9574196
+    },
+    {
+      "step": 21,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "sf_type",
+          "is_active"
+        ]
+      },
+      "estimated_cost": 507.86,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1786297746.3220398
+    },
+    {
+      "step": 22,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "sf_type"
+        ]
+      },
+      "estimated_cost": 440.86,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1786297746.4850707
+    },
+    {
+      "step": 23,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "sf_type"
+        ]
+      },
+      "estimated_cost": 16.9,
+      "decision": "proposed",
+      "note": "query_id=Q5",
+      "timestamp": 1786297746.6359563
+    },
+    {
+      "step": 24,
+      "candidate_index": {
+        "table": "call_forwarding",
+        "columns": [
+          "s_id",
+          "sf_type",
+          "start_time",
+          "end_time",
+          "numberx"
+        ]
+      },
+      "estimated_cost": 16.9,
+      "decision": "proposed",
+      "note": "query_id=Q5",
+      "timestamp": 1786297746.9252365
+    },
+    {
+      "step": 25,
+      "candidate_index": {
+        "table": "access_info",
+        "columns": [
+          "s_id",
+          "ai_type",
+          "data1"
+        ]
+      },
+      "estimated_cost": 7579.76,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1786297753.87124
+    },
+    {
+      "step": 26,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "s_id",
+          "vlr_location"
+        ]
+      },
+      "estimated_cost": 8505.14,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786297753.9605114
+    },
+    {
+      "step": 27,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "msc_location",
+          "s_id"
+        ]
+      },
+      "estimated_cost": 9565.03,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1786297754.0353525
+    },
+    {
+      "step": 28,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "vlr_location",
+          "s_id",
+          "msc_location"
+        ]
+      },
+      "estimated_cost": 11713.26,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1786297754.114023
+    },
+    {
+      "step": 29,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "s_id",
+          "sf_type"
+        ]
+      },
+      "estimated_cost": 1239.42,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1786297763.7114859
+    },
+    {
+      "step": 30,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "s_id",
+          "vlr_location"
+        ]
+      },
+      "estimated_cost": 10.5,
+      "decision": "proposed",
+      "note": "query_id=Q8",
+      "timestamp": 1786297763.7968159
+    },
+    {
+      "step": 31,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "s_id",
+          "vlr_location"
+        ]
+      },
+      "estimated_cost": 2090.0,
+      "decision": "proposed",
+      "note": "query_id=Q2",
+      "timestamp": 1786297763.883311
+    },
+    {
+      "step": 32,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "msc_location",
+          "s_id"
+        ]
+      },
+      "estimated_cost": 2340.0,
+      "decision": "proposed",
+      "note": "query_id=Q7",
+      "timestamp": 1786297763.9593542
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "sub_nbr"
+        ]
+      },
+      "estimated_cost": 8.44,
+      "decision": "proposed",
+      "note": "query_id=Q2",
+      "timestamp": 1786297774.7643266
+    },
+    {
+      "step": 34,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "vlr_location",
+          "s_id",
+          "msc_location"
+        ]
+      },
+      "estimated_cost": 8892.84,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786297774.8456159
+    },
+    {
+      "step": 35,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "byte2_1",
+          "s_id"
+        ]
+      },
+      "estimated_cost": 8889.04,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786297774.9298868
+    },
+    {
+      "step": 36,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "sf_type"
+        ]
+      },
+      "estimated_cost": 8893.01,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786297775.0863338
+    },
+    {
+      "step": 37,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "bit_2",
+          "s_id"
+        ]
+      },
+      "estimated_cost": 8882.54,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786297783.379089
+    },
+    {
+      "step": 38,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "bit_2",
+          "s_id"
+        ]
+      },
+      "estimated_cost": 11645.0,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1786297783.4792705
+    },
+    {
+      "step": 39,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "byte2_1",
+          "s_id"
+        ]
+      },
+      "estimated_cost": 6487.07,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1786297783.5639305
+    },
+    {
+      "step": 40,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "s_id",
+          "vlr_location"
+        ]
+      },
+      "estimated_cost": 11511.2,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1786297783.6494281
+    },
+    {
+      "step": 41,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "bit_2",
+          "s_id"
+        ]
+      },
+      "estimated_cost": 8.86,
+      "decision": "proposed",
+      "note": "query_id=Q8",
+      "timestamp": 1786297789.6833475
+    },
+    {
+      "step": 42,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "s_id",
+          "vlr_location"
+        ]
+      },
+      "estimated_cost": 2340.0,
+      "decision": "proposed",
+      "note": "query_id=Q7",
+      "timestamp": 1786297789.7704413
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "sub_nbr"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786297823.9063828
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "vlr_location",
+          "s_id",
+          "msc_location"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786297823.9063838
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "bit_2",
+          "s_id"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786297823.9063838
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "s_id",
+          "vlr_location"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786297823.9063842
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "msc_location",
+          "s_id"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786297823.9063845
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "byte2_1",
+          "s_id"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786297823.9063845
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "sf_type"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786297823.9063847
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "call_forwarding",
+        "columns": [
+          "start_time"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786297823.906385
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "access_info",
+        "columns": [
+          "s_id",
+          "ai_type",
+          "data1"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786297823.9064205
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "call_forwarding",
+        "columns": [
+          "s_id",
+          "sf_type",
+          "start_time",
+          "end_time",
+          "numberx"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786297823.9064214
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786297823.9064224
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "s_id"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786297823.9064229
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "is_active",
+          "s_id",
+          "sf_type"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786297823.9064229
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "special_facility",
+        "columns": [
+          "sf_type",
+          "is_active"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786297823.9064233
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "bit_1",
+          "vlr_location"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786297823.9064236
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "byte2_1"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786297823.9064238
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "msc_location",
+          "bit_1"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786297823.9064243
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "msc_location",
+          "s_id",
+          "bit_1"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786297823.9064243
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "subscriber",
+        "columns": [
+          "vlr_location"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786297823.9064245
+    }
+  ]
+}

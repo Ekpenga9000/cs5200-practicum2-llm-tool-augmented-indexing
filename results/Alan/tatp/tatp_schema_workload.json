@@ -1,0 +1,66 @@
+{
+  "schema_name": "tatp",
+  "ddl": "-- TATP (Telecom Application Transaction Processing) benchmark schema.\n-- Postgres dialect. 4 tables. PK/FK only -- this is the no-extra-index baseline\n-- state. subscriber columns are a representative subset of the full TATP spec\n-- (s_id + sub_nbr alternate key + a few bit/hex/byte fields + msc/vlr location).\n\nCREATE TABLE subscriber (\n    s_id         INT PRIMARY KEY,\n    sub_nbr      VARCHAR(15),      -- zero-padded s_id; alternate lookup key\n    bit_1        SMALLINT,\n    bit_2        SMALLINT,\n    hex_1        SMALLINT,\n    byte2_1      SMALLINT,\n    msc_location INT,\n    vlr_location INT\n);\n\nCREATE TABLE access_info (\n    s_id    INT,\n    ai_type SMALLINT,\n    data1   SMALLINT,\n    data2   SMALLINT,\n    data3   VARCHAR(3),\n    data4   VARCHAR(5),\n    PRIMARY KEY (s_id, ai_type),\n    FOREIGN KEY (s_id) REFERENCES subscriber(s_id)\n);\n\nCREATE TABLE special_facility (\n    s_id        INT,\n    sf_type     SMALLINT,\n    is_active   SMALLINT,\n    error_cntrl SMALLINT,\n    data_a      SMALLINT,\n    data_b      VARCHAR(5),\n    PRIMARY KEY (s_id, sf_type),\n    FOREIGN KEY (s_id) REFERENCES subscriber(s_id)\n);\n\nCREATE TABLE call_forwarding (\n    s_id       INT,\n    sf_type    SMALLINT,\n    start_time SMALLINT,\n    end_time   SMALLINT,\n    numberx    VARCHAR(15),\n    PRIMARY KEY (s_id, sf_type, start_time),\n    FOREIGN KEY (s_id, sf_type) REFERENCES special_facility(s_id, sf_type)\n);\n",
+  "queries": [
+    {
+      "query_id": "Q1",
+      "query_text": "SELECT * FROM subscriber WHERE s_id = 55123;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q2",
+      "query_text": "SELECT s_id, bit_1, msc_location FROM subscriber WHERE sub_nbr = '000000000055123';",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q3",
+      "query_text": "SELECT data1, data2, data3, data4 FROM access_info WHERE s_id = 55123 AND ai_type = 1;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q4",
+      "query_text": "SELECT is_active, data_a FROM special_facility WHERE s_id = 55123 AND sf_type = 1;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q5",
+      "query_text": "SELECT cf.numberx FROM special_facility sf JOIN call_forwarding cf ON sf.s_id = cf.s_id AND sf.sf_type = cf.sf_type WHERE sf.s_id = 55123 AND sf.sf_type = 1 AND sf.is_active = 1 AND cf.start_time <= 8 AND cf.end_time > 8;",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q6",
+      "query_text": "SELECT COUNT(*) FROM special_facility WHERE is_active = 0 AND sf_type = 2;",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q7",
+      "query_text": "SELECT s_id, msc_location FROM subscriber WHERE vlr_location BETWEEN 1000 AND 2000;",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q8",
+      "query_text": "SELECT s_id FROM subscriber WHERE bit_1 = 1 AND bit_2 = 0 AND s_id < 100;",
+      "complexity_tier": "Simple"
+    },
+    {
+      "query_id": "Q9",
+      "query_text": "SELECT start_time, COUNT(*) FROM call_forwarding WHERE start_time = 8 GROUP BY start_time;",
+      "complexity_tier": "Medium"
+    },
+    {
+      "query_id": "Q10",
+      "query_text": "SELECT s.vlr_location, COUNT(*) FROM subscriber s JOIN special_facility sf ON s.s_id = sf.s_id WHERE sf.is_active = 1 AND s.bit_1 = 1 GROUP BY s.vlr_location ORDER BY COUNT(*) DESC LIMIT 10;",
+      "complexity_tier": "Complex"
+    },
+    {
+      "query_id": "Q11",
+      "query_text": "SELECT s.s_id, COUNT(cf.numberx) FROM subscriber s JOIN special_facility sf ON s.s_id = sf.s_id JOIN call_forwarding cf ON sf.s_id = cf.s_id AND sf.sf_type = cf.sf_type WHERE s.msc_location BETWEEN 1 AND 500 AND sf.is_active = 1 GROUP BY s.s_id ORDER BY COUNT(cf.numberx) DESC LIMIT 10;",
+      "complexity_tier": "Complex"
+    },
+    {
+      "query_id": "Q12",
+      "query_text": "SELECT ai.ai_type, AVG(ai.data1) FROM access_info ai JOIN subscriber s ON ai.s_id = s.s_id WHERE s.byte2_1 > 128 GROUP BY ai.ai_type ORDER BY ai.ai_type;",
+      "complexity_tier": "Complex"
+    }
+  ]
+}

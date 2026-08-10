@@ -10,10 +10,10 @@
         "c_first"
       ]
     },
-    "estimated_cost": 8.3,
+    "estimated_cost": 8.43,
     "decision": "proposed",
     "note": "query_id=Q6",
-    "timestamp": 1785537046.0364146
+    "timestamp": 1785806402.7809682
   },
   {
     "step": 2,
@@ -26,264 +26,13 @@
         "o_id"
       ]
     },
-    "estimated_cost": 2.69,
+    "estimated_cost": 8.31,
     "decision": "proposed",
     "note": "query_id=Q7",
-    "timestamp": 1785537046.0665925
+    "timestamp": 1785806402.8111017
   },
   {
     "step": 3,
-    "candidate_index": {
-      "table": "stock",
-      "columns": [
-        "s_w_id",
-        "s_quantity",
-        "s_i_id"
-      ]
-    },
-    "estimated_cost": 372.9,
-    "decision": "proposed",
-    "note": "query_id=Q11",
-    "timestamp": 1785537046.0705497
-  },
-  {
-    "step": 4,
-    "candidate_index": {
-      "table": "orders",
-      "columns": [
-        "o_w_id",
-        "o_d_id",
-        "o_c_id",
-        "o_id"
-      ]
-    },
-    "estimated_cost": 10198.13,
-    "decision": "proposed",
-    "note": "query_id=Q12",
-    "timestamp": 1785537046.0999575
-  },
-  {
-    "step": 5,
-    "candidate_index": {
-      "table": "stock",
-      "columns": [
-        "s_w_id",
-        "s_i_id",
-        "s_quantity"
-      ]
-    },
-    "estimated_cost": 372.9,
-    "decision": "proposed",
-    "note": "query_id=Q11",
-    "timestamp": 1785537052.4800076
-  },
-  {
-    "step": 6,
-    "candidate_index": {
-      "table": "order_line",
-      "columns": [
-        "ol_w_id",
-        "ol_d_id",
-        "ol_o_id",
-        "ol_i_id",
-        "ol_amount"
-      ]
-    },
-    "estimated_cost": 9929.07,
-    "decision": "proposed",
-    "note": "query_id=Q12",
-    "timestamp": 1785537052.7240772
-  },
-  {
-    "step": 7,
-    "candidate_index": {
-      "table": "customer",
-      "columns": [
-        "c_w_id",
-        "c_d_id",
-        "c_last",
-        "c_first"
-      ]
-    },
-    "estimated_cost": 10198.13,
-    "decision": "proposed",
-    "note": "query_id=Q12",
-    "timestamp": 1785537052.7496762
-  },
-  {
-    "step": 8,
-    "candidate_index": {
-      "table": "orders",
-      "columns": [
-        "o_w_id",
-        "o_d_id",
-        "o_c_id",
-        "o_id"
-      ]
-    },
-    "estimated_cost": 353.34,
-    "decision": "proposed",
-    "note": "query_id=Q11",
-    "timestamp": 1785537052.7787693
-  },
-  {
-    "step": 9,
-    "candidate_index": {
-      "table": "orders",
-      "columns": [
-        "o_w_id",
-        "o_d_id",
-        "o_id",
-        "o_c_id"
-      ]
-    },
-    "estimated_cost": 10198.13,
-    "decision": "proposed",
-    "note": "query_id=Q12",
-    "timestamp": 1785537059.4674692
-  },
-  {
-    "step": 10,
-    "candidate_index": {
-      "table": "customer",
-      "columns": [
-        "c_w_id",
-        "c_d_id",
-        "c_id",
-        "c_last"
-      ]
-    },
-    "estimated_cost": 10198.13,
-    "decision": "proposed",
-    "note": "query_id=Q12",
-    "timestamp": 1785537059.4884374
-  },
-  {
-    "step": 11,
-    "candidate_index": {
-      "table": "stock",
-      "columns": [
-        "s_w_id",
-        "s_quantity",
-        "s_i_id"
-      ]
-    },
-    "estimated_cost": 353.34,
-    "decision": "proposed",
-    "note": "query_id=Q11",
-    "timestamp": 1785537059.4914074
-  },
-  {
-    "step": 12,
-    "candidate_index": {
-      "table": "orders",
-      "columns": [
-        "o_w_id",
-        "o_d_id",
-        "o_c_id"
-      ]
-    },
-    "estimated_cost": 24.32,
-    "decision": "proposed",
-    "note": "query_id=Q7",
-    "timestamp": 1785537059.51827
-  },
-  {
-    "step": 13,
-    "candidate_index": {
-      "table": "order_line",
-      "columns": [
-        "ol_w_id",
-        "ol_d_id",
-        "ol_o_id",
-        "ol_i_id",
-        "ol_amount"
-      ]
-    },
-    "estimated_cost": 15.44,
-    "decision": "proposed",
-    "note": "query_id=Q11",
-    "timestamp": 1785537068.677887
-  },
-  {
-    "step": 14,
-    "candidate_index": {
-      "table": "order_line",
-      "columns": [
-        "ol_w_id",
-        "ol_d_id",
-        "ol_o_id",
-        "ol_i_id",
-        "ol_amount"
-      ]
-    },
-    "estimated_cost": 4.69,
-    "decision": "proposed",
-    "note": "query_id=Q10",
-    "timestamp": 1785537068.9410853
-  },
-  {
-    "step": 15,
-    "candidate_index": {
-      "table": "order_line",
-      "columns": [
-        "ol_w_id",
-        "ol_d_id",
-        "ol_o_id",
-        "ol_i_id",
-        "ol_amount"
-      ]
-    },
-    "estimated_cost": 24.4,
-    "decision": "proposed",
-    "note": "query_id=Q8",
-    "timestamp": 1785537069.1752214
-  },
-  {
-    "step": 16,
-    "candidate_index": {
-      "table": "orders",
-      "columns": [
-        "o_w_id",
-        "o_d_id",
-        "o_c_id",
-        "o_id"
-      ]
-    },
-    "estimated_cost": 10198.13,
-    "decision": "proposed",
-    "note": "query_id=Q12",
-    "timestamp": 1785537069.2054744
-  },
-  {
-    "step": 17,
-    "candidate_index": {
-      "table": "warehouse",
-      "columns": [
-        "w_id"
-      ]
-    },
-    "estimated_cost": 1.01,
-    "decision": "proposed",
-    "note": "query_id=Q1",
-    "timestamp": 1785537077.5390034
-  },
-  {
-    "step": 18,
-    "candidate_index": {
-      "table": "district",
-      "columns": [
-        "d_w_id",
-        "d_id"
-      ]
-    },
-    "estimated_cost": 1.15,
-    "decision": "proposed",
-    "note": "query_id=Q2",
-    "timestamp": 1785537077.5421143
-  },
-  {
-    "step": 19,
     "candidate_index": {
       "table": "new_order",
       "columns": [
@@ -295,10 +44,73 @@
     "estimated_cost": 0.32,
     "decision": "proposed",
     "note": "query_id=Q9",
-    "timestamp": 1785537077.552813
+    "timestamp": 1785806402.818144
   },
   {
-    "step": 20,
+    "step": 4,
+    "candidate_index": {
+      "table": "stock",
+      "columns": [
+        "s_w_id",
+        "s_i_id",
+        "s_quantity"
+      ]
+    },
+    "estimated_cost": 1037.44,
+    "decision": "proposed",
+    "note": "query_id=Q11",
+    "timestamp": 1785806402.9506269
+  },
+  {
+    "step": 5,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_w_id",
+        "c_d_id",
+        "c_id",
+        "c_last"
+      ]
+    },
+    "estimated_cost": 12944.61,
+    "decision": "proposed",
+    "note": "query_id=Q12",
+    "timestamp": 1785806403.1527777
+  },
+  {
+    "step": 6,
+    "candidate_index": {
+      "table": "order_line",
+      "columns": [
+        "ol_w_id",
+        "ol_d_id",
+        "ol_o_id",
+        "ol_i_id"
+      ]
+    },
+    "estimated_cost": 1463.11,
+    "decision": "proposed",
+    "note": "query_id=Q11",
+    "timestamp": 1785806409.9016852
+  },
+  {
+    "step": 7,
+    "candidate_index": {
+      "table": "orders",
+      "columns": [
+        "o_w_id",
+        "o_d_id",
+        "o_c_id",
+        "o_id"
+      ]
+    },
+    "estimated_cost": 12840.44,
+    "decision": "proposed",
+    "note": "query_id=Q12",
+    "timestamp": 1785806409.9539487
+  },
+  {
+    "step": 8,
     "candidate_index": {
       "table": "customer",
       "columns": [
@@ -308,13 +120,107 @@
         "c_first"
       ]
     },
-    "estimated_cost": 8.3,
+    "estimated_cost": 12840.44,
     "decision": "proposed",
-    "note": "query_id=Q6",
-    "timestamp": 1785537077.578981
+    "note": "query_id=Q12",
+    "timestamp": 1785806410.2098017
   },
   {
-    "step": 21,
+    "step": 9,
+    "candidate_index": {
+      "table": "order_line",
+      "columns": [
+        "ol_w_id",
+        "ol_d_id",
+        "ol_o_id",
+        "ol_i_id"
+      ]
+    },
+    "estimated_cost": 12840.04,
+    "decision": "proposed",
+    "note": "query_id=Q12",
+    "timestamp": 1785806410.4534197
+  },
+  {
+    "step": 10,
+    "candidate_index": {
+      "table": "orders",
+      "columns": [
+        "o_w_id",
+        "o_d_id",
+        "o_c_id",
+        "o_id"
+      ]
+    },
+    "estimated_cost": 12840.44,
+    "decision": "proposed",
+    "note": "query_id=Q12",
+    "timestamp": 1785806418.8184757
+  },
+  {
+    "step": 11,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_w_id",
+        "c_d_id",
+        "c_id",
+        "c_last"
+      ]
+    },
+    "estimated_cost": 101.81,
+    "decision": "proposed",
+    "note": "query_id=Q6",
+    "timestamp": 1785806419.0160537
+  },
+  {
+    "step": 12,
+    "candidate_index": {
+      "table": "stock",
+      "columns": [
+        "s_w_id",
+        "s_i_id",
+        "s_quantity"
+      ]
+    },
+    "estimated_cost": 1039.66,
+    "decision": "proposed",
+    "note": "query_id=Q11",
+    "timestamp": 1785806419.1208603
+  },
+  {
+    "step": 13,
+    "candidate_index": {
+      "table": "stock",
+      "columns": [
+        "s_w_id",
+        "s_quantity",
+        "s_i_id"
+      ]
+    },
+    "estimated_cost": 650.61,
+    "decision": "proposed",
+    "note": "query_id=Q11",
+    "timestamp": 1785806419.2578151
+  },
+  {
+    "step": 14,
+    "candidate_index": {
+      "table": "orders",
+      "columns": [
+        "o_w_id",
+        "o_d_id",
+        "o_c_id",
+        "o_id"
+      ]
+    },
+    "estimated_cost": 12840.44,
+    "decision": "proposed",
+    "note": "query_id=Q12",
+    "timestamp": 1785806426.6169443
+  },
+  {
+    "step": 15,
     "candidate_index": {
       "table": "customer",
       "columns": [
@@ -325,10 +231,104 @@
         "c_id"
       ]
     },
-    "estimated_cost": 8.3,
+    "estimated_cost": 8.43,
     "decision": "proposed",
     "note": "query_id=Q6",
-    "timestamp": 1785537084.9875836
+    "timestamp": 1785806426.8826063
+  },
+  {
+    "step": 16,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_w_id",
+        "c_d_id",
+        "c_last",
+        "c_first"
+      ]
+    },
+    "estimated_cost": 8.43,
+    "decision": "proposed",
+    "note": "query_id=Q6",
+    "timestamp": 1785806427.156876
+  },
+  {
+    "step": 17,
+    "candidate_index": {
+      "table": "stock",
+      "columns": [
+        "s_w_id",
+        "s_quantity",
+        "s_i_id"
+      ]
+    },
+    "estimated_cost": 8.31,
+    "decision": "proposed",
+    "note": "query_id=Q5",
+    "timestamp": 1785806427.2809064
+  },
+  {
+    "step": 18,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_w_id",
+        "c_d_id",
+        "c_last",
+        "c_first"
+      ]
+    },
+    "estimated_cost": 12840.44,
+    "decision": "proposed",
+    "note": "query_id=Q12",
+    "timestamp": 1785806433.491939
+  },
+  {
+    "step": 19,
+    "candidate_index": {
+      "table": "orders",
+      "columns": [
+        "o_w_id",
+        "o_d_id",
+        "o_id",
+        "o_c_id"
+      ]
+    },
+    "estimated_cost": 12840.44,
+    "decision": "proposed",
+    "note": "query_id=Q12",
+    "timestamp": 1785806433.519659
+  },
+  {
+    "step": 20,
+    "candidate_index": {
+      "table": "stock",
+      "columns": [
+        "s_w_id",
+        "s_quantity",
+        "s_i_id"
+      ]
+    },
+    "estimated_cost": 12840.44,
+    "decision": "proposed",
+    "note": "query_id=Q12",
+    "timestamp": 1785806433.6334088
+  },
+  {
+    "step": 21,
+    "candidate_index": {
+      "table": "order_line",
+      "columns": [
+        "ol_w_id",
+        "ol_d_id",
+        "ol_o_id",
+        "ol_i_id"
+      ]
+    },
+    "estimated_cost": 1420.73,
+    "decision": "proposed",
+    "note": "query_id=Q11",
+    "timestamp": 1785806442.1981769
   },
   {
     "step": 22,
@@ -338,14 +338,13 @@
         "c_w_id",
         "c_d_id",
         "c_last",
-        "c_first",
-        "c_id"
+        "c_first"
       ]
     },
-    "estimated_cost": 10198.13,
+    "estimated_cost": 372.8,
     "decision": "proposed",
-    "note": "query_id=Q12",
-    "timestamp": 1785537085.0133932
+    "note": "query_id=Q7",
+    "timestamp": 1785806442.4585822
   },
   {
     "step": 23,
@@ -358,10 +357,10 @@
         "o_id"
       ]
     },
-    "estimated_cost": 2.69,
+    "estimated_cost": 8.31,
     "decision": "proposed",
     "note": "query_id=Q7",
-    "timestamp": 1785537085.0420442
+    "timestamp": 1785806442.486794
   },
   {
     "step": 24,
@@ -374,13 +373,154 @@
         "c_first"
       ]
     },
+    "estimated_cost": 8.31,
+    "decision": "proposed",
+    "note": "query_id=Q3",
+    "timestamp": 1785806442.742857
+  },
+  {
+    "step": 25,
+    "candidate_index": {
+      "table": "stock",
+      "columns": [
+        "s_w_id",
+        "s_quantity",
+        "s_i_id"
+      ]
+    },
+    "estimated_cost": 664.06,
+    "decision": "proposed",
+    "note": "query_id=Q11",
+    "timestamp": 1785806452.0934238
+  },
+  {
+    "step": 26,
+    "candidate_index": {
+      "table": "order_line",
+      "columns": [
+        "ol_w_id",
+        "ol_d_id",
+        "ol_o_id",
+        "ol_i_id"
+      ]
+    },
+    "estimated_cost": 24.44,
+    "decision": "proposed",
+    "note": "query_id=Q10",
+    "timestamp": 1785806452.3515542
+  },
+  {
+    "step": 27,
+    "candidate_index": {
+      "table": "orders",
+      "columns": [
+        "o_w_id",
+        "o_d_id",
+        "o_c_id",
+        "o_id"
+      ]
+    },
+    "estimated_cost": 1843.94,
+    "decision": "proposed",
+    "note": "query_id=Q11",
+    "timestamp": 1785806452.3805873
+  },
+  {
+    "step": 28,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_w_id",
+        "c_d_id",
+        "c_last",
+        "c_first"
+      ]
+    },
+    "estimated_cost": 12840.44,
+    "decision": "proposed",
+    "note": "query_id=Q12",
+    "timestamp": 1785806452.6365528
+  },
+  {
+    "step": 29,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_w_id",
+        "c_d_id",
+        "c_last",
+        "c_first"
+      ]
+    },
+    "estimated_cost": 8.43,
+    "decision": "proposed",
+    "note": "query_id=Q6",
+    "timestamp": 1785806459.6165543
+  },
+  {
+    "step": 30,
+    "candidate_index": {
+      "table": "orders",
+      "columns": [
+        "o_w_id",
+        "o_d_id",
+        "o_c_id",
+        "o_id"
+      ]
+    },
+    "estimated_cost": 8.31,
+    "decision": "proposed",
+    "note": "query_id=Q7",
+    "timestamp": 1785806459.6447136
+  },
+  {
+    "step": 31,
+    "candidate_index": {
+      "table": "stock",
+      "columns": [
+        "s_w_id",
+        "s_quantity",
+        "s_i_id"
+      ]
+    },
+    "estimated_cost": 678.71,
+    "decision": "proposed",
+    "note": "query_id=Q11",
+    "timestamp": 1785806459.8654566
+  },
+  {
+    "step": 32,
+    "candidate_index": {
+      "table": "new_order",
+      "columns": [
+        "no_w_id",
+        "no_d_id",
+        "no_o_id"
+      ]
+    },
+    "estimated_cost": 0.32,
+    "decision": "proposed",
+    "note": "query_id=Q9",
+    "timestamp": 1785806459.8716695
+  },
+  {
+    "step": 33,
+    "candidate_index": {
+      "table": "customer",
+      "columns": [
+        "c_w_id",
+        "c_d_id",
+        "c_last",
+        "c_first"
+      ]
+    },
     "estimated_cost": null,
     "decision": "accepted",
     "note": "final recommendation",
-    "timestamp": 1785537117.9362226
+    "timestamp": 1785806492.5891623
   },
   {
-    "step": 24,
+    "step": 33,
     "candidate_index": {
       "table": "orders",
       "columns": [
@@ -393,27 +533,25 @@
     "estimated_cost": null,
     "decision": "accepted",
     "note": "final recommendation",
-    "timestamp": 1785537117.9362235
+    "timestamp": 1785806492.5891633
   },
   {
-    "step": 24,
+    "step": 33,
     "candidate_index": {
-      "table": "order_line",
+      "table": "stock",
       "columns": [
-        "ol_w_id",
-        "ol_d_id",
-        "ol_o_id",
-        "ol_i_id",
-        "ol_amount"
+        "s_w_id",
+        "s_quantity",
+        "s_i_id"
       ]
     },
     "estimated_cost": null,
     "decision": "accepted",
     "note": "final recommendation",
-    "timestamp": 1785537117.9362237
+    "timestamp": 1785806492.5891635
   },
   {
-    "step": 24,
+    "step": 33,
     "candidate_index": {
       "table": "customer",
       "columns": [
@@ -426,10 +564,10 @@
     "estimated_cost": null,
     "decision": "rejected",
     "note": "tried but not in final recommendation",
-    "timestamp": 1785537117.936246
+    "timestamp": 1785806492.589189
   },
   {
-    "step": 24,
+    "step": 33,
     "candidate_index": {
       "table": "customer",
       "columns": [
@@ -443,24 +581,10 @@
     "estimated_cost": null,
     "decision": "rejected",
     "note": "tried but not in final recommendation",
-    "timestamp": 1785537117.9362469
+    "timestamp": 1785806492.58919
   },
   {
-    "step": 24,
-    "candidate_index": {
-      "table": "district",
-      "columns": [
-        "d_w_id",
-        "d_id"
-      ]
-    },
-    "estimated_cost": null,
-    "decision": "rejected",
-    "note": "tried but not in final recommendation",
-    "timestamp": 1785537117.936247
-  },
-  {
-    "step": 24,
+    "step": 33,
     "candidate_index": {
       "table": "new_order",
       "columns": [
@@ -472,25 +596,26 @@
     "estimated_cost": null,
     "decision": "rejected",
     "note": "tried but not in final recommendation",
-    "timestamp": 1785537117.9362473
+    "timestamp": 1785806492.5891902
   },
   {
-    "step": 24,
+    "step": 33,
     "candidate_index": {
-      "table": "orders",
+      "table": "order_line",
       "columns": [
-        "o_w_id",
-        "o_d_id",
-        "o_c_id"
+        "ol_w_id",
+        "ol_d_id",
+        "ol_o_id",
+        "ol_i_id"
       ]
     },
     "estimated_cost": null,
     "decision": "rejected",
     "note": "tried but not in final recommendation",
-    "timestamp": 1785537117.9362476
+    "timestamp": 1785806492.5891907
   },
   {
-    "step": 24,
+    "step": 33,
     "candidate_index": {
       "table": "orders",
       "columns": [
@@ -503,10 +628,10 @@
     "estimated_cost": null,
     "decision": "rejected",
     "note": "tried but not in final recommendation",
-    "timestamp": 1785537117.9362478
+    "timestamp": 1785806492.589191
   },
   {
-    "step": 24,
+    "step": 33,
     "candidate_index": {
       "table": "stock",
       "columns": [
@@ -518,34 +643,6 @@
     "estimated_cost": null,
     "decision": "rejected",
     "note": "tried but not in final recommendation",
-    "timestamp": 1785537117.936248
-  },
-  {
-    "step": 24,
-    "candidate_index": {
-      "table": "stock",
-      "columns": [
-        "s_w_id",
-        "s_quantity",
-        "s_i_id"
-      ]
-    },
-    "estimated_cost": null,
-    "decision": "rejected",
-    "note": "tried but not in final recommendation",
-    "timestamp": 1785537117.9362485
-  },
-  {
-    "step": 24,
-    "candidate_index": {
-      "table": "warehouse",
-      "columns": [
-        "w_id"
-      ]
-    },
-    "estimated_cost": null,
-    "decision": "rejected",
-    "note": "tried but not in final recommendation",
-    "timestamp": 1785537117.936249
+    "timestamp": 1785806492.5891912
   }
 ]

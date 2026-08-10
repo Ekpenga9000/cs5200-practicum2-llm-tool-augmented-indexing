@@ -13,7 +13,11 @@ def extract_schema_columns(schema_ddl: str) -> dict[str, set[str]]:
     indexes can be checked against what actually exists.
     """
     tables = {}
-    for match in re.finditer(r'CREATE TABLE (\w+)\s*\((.*?)\)\s*;', schema_ddl, re.S):
+    for match in re.finditer(
+        r'CREATE\s+TABLE\s+(\w+)\s*\((.*?)\)\s*;',
+        schema_ddl,
+        re.S | re.I,
+    ):
         table, cols_block = match.groups()
         cols = {c.strip().split()[0] for c in cols_block.split(",") if c.strip()}
         tables[table] = cols
@@ -27,7 +31,11 @@ def validate_index_stmt(stmt: str, schema_cols: dict[str, set[str]]) -> bool:
     operator classes (e.g. "note text_pattern_ops") by validating just
     the column name portion of each column entry.
     """
-    m = re.match(r'CREATE INDEX \w+ ON (\w+)\((.*?)\)', stmt.strip())
+    m = re.match(
+        r'CREATE\s+INDEX\s+\w+\s+ON\s+(\w+)\s*\((.*?)\)',
+        stmt.strip(),
+        re.I,
+    )
     if not m:
         return False
     table, cols = m.groups()
