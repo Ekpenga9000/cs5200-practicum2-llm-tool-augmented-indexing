@@ -21,17 +21,15 @@
       ]
     },
     {
-      "table": "order_line",
+      "table": "stock",
       "columns": [
-        "ol_w_id",
-        "ol_d_id",
-        "ol_o_id",
-        "ol_i_id",
-        "ol_amount"
+        "s_w_id",
+        "s_quantity",
+        "s_i_id"
       ]
     }
   ],
-  "llm_reasoning_text": "## Index Recommendation Analysis\n\n### Queries Already Covered by Existing PKs (no new index needed)\n- **Q1** (warehouse PK `w_id`): tiny table, seq scan costs 1.01 \u2014 negligible\n- **Q2** (district PK `d_w_id, d_id`): tiny table, seq scan costs 1.15 \u2014 negligible  \n- **Q3** (customer PK `c_w_id, c_d_id, c_id`): direct PK lookup\n- **Q4** (item PK `i_id`): direct PK lookup\n- **Q5** (stock PK `s_w_id, s_i_id`): direct PK lookup\n- **Q8** (order_line PK `ol_w_id, ol_d_id, ol_o_id, ol_number`): direct PK lookup\n- **Q9** (new_order PK `no_w_id, no_d_id, no_o_id`): PK used for index-only scan + LIMIT, cost 0.32\n\n---\n\n### Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`\n- **Targets Q6**: `WHERE c_w_id=1 AND c_d_id=3 AND c_last='BARBARANTI' ORDER BY c_first`\n- The leading three columns satisfy the equality predicates; `c_first` as the 4th column provides sort order, enabling an ordered index scan without a separate Sort node\n- **Cost**: 8.30 (index scan, no explicit sort needed)\n- Without this index, the query would require a seq scan + sort over thousands of customer rows\n- Also benefits Q12 marginally (the planner uses it to hash the customer side)\n\n---\n\n### Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`\n- **Targets Q7**: `WHERE o_w_id=1 AND o_d_id=3 AND o_c_id=42 ORDER BY o_id DESC LIMIT 1`\n- The first three columns satisfy equalities; `o_id` as the 4th enables a backward index scan, which satisfies `ORDER BY o_id DESC LIMIT 1` without materializing or sorting \u2014 the planner stops at the very first row\n- **Cost: 2.69** (backward index scan + limit \u2014 dramatically better than the 24.32 cost without `o_id` in the index)\n- Also covers Q12's orders join side (though Q12 uses a hash join over the full warehouse, where seq scan wins)\n\n---\n\n### Index 3: `order_line(ol_w_id, ol_d_id, ol_o_id, ol_i_id, ol_amount)`\n- **Targets Q11 and Q10 (and Q8/Q12 indirectly)**\n- **Q11** (Stock Level query): `WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id BETWEEN 980 AND 999` \u2014 uses index-only scan on `ol_i_id` for the join with stock; cost drops from **372.90 \u2192 15.44** (96% reduction)\n- **Q10**: `SUM(ol_amount) WHERE ol_w_id=1 AND ol_d_id=3 AND ol_o_id=1000` \u2014 index-only scan on `ol_amount`; cost **4.69** vs prior seq scan\n- **Q8**: Fetching order line details for a specific order; index provides efficient access at cost 24.40\n- **Q12**: The planner prefers a parallel seq scan for the full warehouse-wide join (125K rows), which is genuinely cheaper at that scale \u2014 no index can improve it here\n- The column ordering `(w_id, d_id, o_id, i_id, amount)` mirrors TPC-C access patterns: partition by warehouse+district, range-scan on order_id, and cover `i_id` + `amount` for index-only reads\n\n---\n\n### What Was Rejected\n- **`stock(s_w_id, s_quantity, s_i_id)`**: Stock seq scan in Q11 costs only 5.50 (tiny table after warehouse filter); the bottleneck was on `order_line`, not `stock`. Both column orderings tested showed no improvement.\n- **`orders(o_w_id, o_d_id, o_c_id)` without o_id**: Cost 24.32 for Q7 vs 2.69 with o_id \u2014 the 4-column version strictly dominates.\n- **Additional customer/orders indexes for Q12**: Q12 touches all orders and order_lines for an entire warehouse (30K orders, 125K order lines). The planner correctly chooses parallel seq scans + hash joins for this volume; no index combination improved it below 9929.\n\n---\n\n### Summary of Cost Improvements\n\n| Query | Before | After | Improvement |\n|-------|--------|-------|-------------|\n| Q6 | seq scan + sort (est. high) | 8.30 (index scan, sorted) | Large |\n| Q7 | ~24.32 (index scan + sort) | **2.69** (backward index scan) | **~89% reduction** |\n| Q10 | seq scan | 4.69 (index-only scan) | Large |\n| Q11 | **372.90** | **15.44** (index-only join) | **~96% reduction** |\n| Q12 | 10,198 | 9,929 (marginal) | ~3% (planner prefers seq scan) |",
+  "llm_reasoning_text": "\n## Index Tuning Analysis \u2014 TPC-C Workload\n\n### Queries Already Served by Existing PKs (no new index needed)\n- **Q1** \u2192 `warehouse_pkey (w_id)` \u2014 point lookup, trivial.\n- **Q2** \u2192 `district_pkey (d_w_id, d_id)` \u2014 point lookup, trivial.\n- **Q3** \u2192 `customer_pkey (c_w_id, c_d_id, c_id)` \u2014 point lookup, trivial.\n- **Q4** \u2192 `item_pkey (i_id)` \u2014 point lookup, trivial.\n- **Q5** \u2192 `stock_pkey (s_w_id, s_i_id)` \u2014 point lookup, trivial.\n- **Q8** \u2192 `order_line_pkey (ol_w_id, ol_d_id, ol_o_id, ol_number)` \u2014 prefix scan, trivial.\n- **Q9** \u2192 `new_order_pkey (no_w_id, no_d_id, no_o_id)` \u2014 index-only scan with LIMIT 1; cost = **0.32**, already optimal.\n- **Q10** \u2192 `order_line_pkey` \u2014 prefix scan on `(ol_w_id, ol_d_id, ol_o_id)`, trivial.\n\n### New Index 1: `customer(c_w_id, c_d_id, c_last, c_first)`\n- **Targets**: Q6 (and also benefits Q12's nested-loop inner side as a covering index).\n- **Q6** filters on `(c_w_id=1, c_d_id=3, c_last='BARBARANTI')` and orders by `c_first`. Without this index the planner falls back to a bitmap heap scan + sort (~372). With this index the planner uses a forward **Index Scan** on the three equality columns (`c_w_id`, `c_d_id`, `c_last`), with `c_first` already in the index for ordering, collapsing cost to **8.43**.\n- Column order rationale: `(c_w_id, c_d_id)` are the high-selectivity warehouse/district prefix; `c_last` is the equality filter; `c_first` is the trailing sort key, enabling the index to deliver rows in the right order without a separate sort step.\n\n### New Index 2: `orders(o_w_id, o_d_id, o_c_id, o_id)`\n- **Targets**: Q7 (and supports Q12 join lookups).\n- **Q7** needs `(o_w_id=1, o_d_id=3, o_c_id=42)` with `ORDER BY o_id DESC LIMIT 1`. Without this index, the planner uses a bitmap heap scan on the PK prefix `(o_w_id, o_d_id)` and then filters + sorts, costing ~372. With this index the planner does a single backward **Index Scan** on all three equality columns and immediately returns the first (maximum) `o_id`, costing **8.31**.\n- Column order rationale: `(o_w_id, o_d_id, o_c_id)` are equality predicates; `o_id` as the trailing column allows the index to serve the `ORDER BY o_id DESC LIMIT 1` directly via a backward scan, eliminating any sort.\n\n### New Index 3: `stock(s_w_id, s_quantity, s_i_id)`\n- **Targets**: Q11.\n- **Q11** joins `order_line` (range scan on `ol_o_id` 980\u2013999) with `stock` where `s_w_id=1` and `s_quantity < 15`, then counts distinct `s_i_id`. Without any special stock index the planner does a nested-loop with `stock_pkey` and applies `s_quantity < 15` as a filter, costing ~1843. With `(s_w_id, s_quantity, s_i_id)` the planner switches to a **Hash Join** strategy: it does an **Index Only Scan** on stock using `(s_w_id=1, s_quantity < 15)` as the index condition (reading only `s_i_id` from the index, no heap access), then hash-joins against the order_line range scan, reducing cost to **~650\u2013678** \u2014 a ~63% reduction.\n- Column order rationale: `s_w_id` is the equality prefix; `s_quantity` enables the range filter `< 15` to be pushed into the index condition; `s_i_id` is the payload needed by the query, making this a covering (index-only) scan for stock.\n\n### Q12 \u2014 No new index recommended\nQ12 aggregates `SUM(ol_amount)` across all orders for all customers at `c_w_id=1`, joining all three large tables. The planner consistently prefers seq scans on `orders` (30 000 rows) and `customer` (30 000 rows) for the inner hash build, regardless of indexes tested. This is correct behavior: when nearly all rows of a warehouse are fetched, an index would cost more than a seq scan. The existing `order_line_pkey` already efficiently serves the per-order line lookups inside that query. No additional index materially reduces Q12's cost.\n",
   "tool_call_log": [
     {
       "step": 1,
@@ -44,10 +42,10 @@
           "c_first"
         ]
       },
-      "estimated_cost": 8.3,
+      "estimated_cost": 8.43,
       "decision": "proposed",
       "note": "query_id=Q6",
-      "timestamp": 1785537046.0364146
+      "timestamp": 1785806402.7809682
     },
     {
       "step": 2,
@@ -60,264 +58,13 @@
           "o_id"
         ]
       },
-      "estimated_cost": 2.69,
+      "estimated_cost": 8.31,
       "decision": "proposed",
       "note": "query_id=Q7",
-      "timestamp": 1785537046.0665925
+      "timestamp": 1785806402.8111017
     },
     {
       "step": 3,
-      "candidate_index": {
-        "table": "stock",
-        "columns": [
-          "s_w_id",
-          "s_quantity",
-          "s_i_id"
-        ]
-      },
-      "estimated_cost": 372.9,
-      "decision": "proposed",
-      "note": "query_id=Q11",
-      "timestamp": 1785537046.0705497
-    },
-    {
-      "step": 4,
-      "candidate_index": {
-        "table": "orders",
-        "columns": [
-          "o_w_id",
-          "o_d_id",
-          "o_c_id",
-          "o_id"
-        ]
-      },
-      "estimated_cost": 10198.13,
-      "decision": "proposed",
-      "note": "query_id=Q12",
-      "timestamp": 1785537046.0999575
-    },
-    {
-      "step": 5,
-      "candidate_index": {
-        "table": "stock",
-        "columns": [
-          "s_w_id",
-          "s_i_id",
-          "s_quantity"
-        ]
-      },
-      "estimated_cost": 372.9,
-      "decision": "proposed",
-      "note": "query_id=Q11",
-      "timestamp": 1785537052.4800076
-    },
-    {
-      "step": 6,
-      "candidate_index": {
-        "table": "order_line",
-        "columns": [
-          "ol_w_id",
-          "ol_d_id",
-          "ol_o_id",
-          "ol_i_id",
-          "ol_amount"
-        ]
-      },
-      "estimated_cost": 9929.07,
-      "decision": "proposed",
-      "note": "query_id=Q12",
-      "timestamp": 1785537052.7240772
-    },
-    {
-      "step": 7,
-      "candidate_index": {
-        "table": "customer",
-        "columns": [
-          "c_w_id",
-          "c_d_id",
-          "c_last",
-          "c_first"
-        ]
-      },
-      "estimated_cost": 10198.13,
-      "decision": "proposed",
-      "note": "query_id=Q12",
-      "timestamp": 1785537052.7496762
-    },
-    {
-      "step": 8,
-      "candidate_index": {
-        "table": "orders",
-        "columns": [
-          "o_w_id",
-          "o_d_id",
-          "o_c_id",
-          "o_id"
-        ]
-      },
-      "estimated_cost": 353.34,
-      "decision": "proposed",
-      "note": "query_id=Q11",
-      "timestamp": 1785537052.7787693
-    },
-    {
-      "step": 9,
-      "candidate_index": {
-        "table": "orders",
-        "columns": [
-          "o_w_id",
-          "o_d_id",
-          "o_id",
-          "o_c_id"
-        ]
-      },
-      "estimated_cost": 10198.13,
-      "decision": "proposed",
-      "note": "query_id=Q12",
-      "timestamp": 1785537059.4674692
-    },
-    {
-      "step": 10,
-      "candidate_index": {
-        "table": "customer",
-        "columns": [
-          "c_w_id",
-          "c_d_id",
-          "c_id",
-          "c_last"
-        ]
-      },
-      "estimated_cost": 10198.13,
-      "decision": "proposed",
-      "note": "query_id=Q12",
-      "timestamp": 1785537059.4884374
-    },
-    {
-      "step": 11,
-      "candidate_index": {
-        "table": "stock",
-        "columns": [
-          "s_w_id",
-          "s_quantity",
-          "s_i_id"
-        ]
-      },
-      "estimated_cost": 353.34,
-      "decision": "proposed",
-      "note": "query_id=Q11",
-      "timestamp": 1785537059.4914074
-    },
-    {
-      "step": 12,
-      "candidate_index": {
-        "table": "orders",
-        "columns": [
-          "o_w_id",
-          "o_d_id",
-          "o_c_id"
-        ]
-      },
-      "estimated_cost": 24.32,
-      "decision": "proposed",
-      "note": "query_id=Q7",
-      "timestamp": 1785537059.51827
-    },
-    {
-      "step": 13,
-      "candidate_index": {
-        "table": "order_line",
-        "columns": [
-          "ol_w_id",
-          "ol_d_id",
-          "ol_o_id",
-          "ol_i_id",
-          "ol_amount"
-        ]
-      },
-      "estimated_cost": 15.44,
-      "decision": "proposed",
-      "note": "query_id=Q11",
-      "timestamp": 1785537068.677887
-    },
-    {
-      "step": 14,
-      "candidate_index": {
-        "table": "order_line",
-        "columns": [
-          "ol_w_id",
-          "ol_d_id",
-          "ol_o_id",
-          "ol_i_id",
-          "ol_amount"
-        ]
-      },
-      "estimated_cost": 4.69,
-      "decision": "proposed",
-      "note": "query_id=Q10",
-      "timestamp": 1785537068.9410853
-    },
-    {
-      "step": 15,
-      "candidate_index": {
-        "table": "order_line",
-        "columns": [
-          "ol_w_id",
-          "ol_d_id",
-          "ol_o_id",
-          "ol_i_id",
-          "ol_amount"
-        ]
-      },
-      "estimated_cost": 24.4,
-      "decision": "proposed",
-      "note": "query_id=Q8",
-      "timestamp": 1785537069.1752214
-    },
-    {
-      "step": 16,
-      "candidate_index": {
-        "table": "orders",
-        "columns": [
-          "o_w_id",
-          "o_d_id",
-          "o_c_id",
-          "o_id"
-        ]
-      },
-      "estimated_cost": 10198.13,
-      "decision": "proposed",
-      "note": "query_id=Q12",
-      "timestamp": 1785537069.2054744
-    },
-    {
-      "step": 17,
-      "candidate_index": {
-        "table": "warehouse",
-        "columns": [
-          "w_id"
-        ]
-      },
-      "estimated_cost": 1.01,
-      "decision": "proposed",
-      "note": "query_id=Q1",
-      "timestamp": 1785537077.5390034
-    },
-    {
-      "step": 18,
-      "candidate_index": {
-        "table": "district",
-        "columns": [
-          "d_w_id",
-          "d_id"
-        ]
-      },
-      "estimated_cost": 1.15,
-      "decision": "proposed",
-      "note": "query_id=Q2",
-      "timestamp": 1785537077.5421143
-    },
-    {
-      "step": 19,
       "candidate_index": {
         "table": "new_order",
         "columns": [
@@ -329,10 +76,73 @@
       "estimated_cost": 0.32,
       "decision": "proposed",
       "note": "query_id=Q9",
-      "timestamp": 1785537077.552813
+      "timestamp": 1785806402.818144
     },
     {
-      "step": 20,
+      "step": 4,
+      "candidate_index": {
+        "table": "stock",
+        "columns": [
+          "s_w_id",
+          "s_i_id",
+          "s_quantity"
+        ]
+      },
+      "estimated_cost": 1037.44,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1785806402.9506269
+    },
+    {
+      "step": 5,
+      "candidate_index": {
+        "table": "customer",
+        "columns": [
+          "c_w_id",
+          "c_d_id",
+          "c_id",
+          "c_last"
+        ]
+      },
+      "estimated_cost": 12944.61,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1785806403.1527777
+    },
+    {
+      "step": 6,
+      "candidate_index": {
+        "table": "order_line",
+        "columns": [
+          "ol_w_id",
+          "ol_d_id",
+          "ol_o_id",
+          "ol_i_id"
+        ]
+      },
+      "estimated_cost": 1463.11,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1785806409.9016852
+    },
+    {
+      "step": 7,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_w_id",
+          "o_d_id",
+          "o_c_id",
+          "o_id"
+        ]
+      },
+      "estimated_cost": 12840.44,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1785806409.9539487
+    },
+    {
+      "step": 8,
       "candidate_index": {
         "table": "customer",
         "columns": [
@@ -342,13 +152,107 @@
           "c_first"
         ]
       },
-      "estimated_cost": 8.3,
+      "estimated_cost": 12840.44,
       "decision": "proposed",
-      "note": "query_id=Q6",
-      "timestamp": 1785537077.578981
+      "note": "query_id=Q12",
+      "timestamp": 1785806410.2098017
     },
     {
-      "step": 21,
+      "step": 9,
+      "candidate_index": {
+        "table": "order_line",
+        "columns": [
+          "ol_w_id",
+          "ol_d_id",
+          "ol_o_id",
+          "ol_i_id"
+        ]
+      },
+      "estimated_cost": 12840.04,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1785806410.4534197
+    },
+    {
+      "step": 10,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_w_id",
+          "o_d_id",
+          "o_c_id",
+          "o_id"
+        ]
+      },
+      "estimated_cost": 12840.44,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1785806418.8184757
+    },
+    {
+      "step": 11,
+      "candidate_index": {
+        "table": "customer",
+        "columns": [
+          "c_w_id",
+          "c_d_id",
+          "c_id",
+          "c_last"
+        ]
+      },
+      "estimated_cost": 101.81,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1785806419.0160537
+    },
+    {
+      "step": 12,
+      "candidate_index": {
+        "table": "stock",
+        "columns": [
+          "s_w_id",
+          "s_i_id",
+          "s_quantity"
+        ]
+      },
+      "estimated_cost": 1039.66,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1785806419.1208603
+    },
+    {
+      "step": 13,
+      "candidate_index": {
+        "table": "stock",
+        "columns": [
+          "s_w_id",
+          "s_quantity",
+          "s_i_id"
+        ]
+      },
+      "estimated_cost": 650.61,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1785806419.2578151
+    },
+    {
+      "step": 14,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_w_id",
+          "o_d_id",
+          "o_c_id",
+          "o_id"
+        ]
+      },
+      "estimated_cost": 12840.44,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1785806426.6169443
+    },
+    {
+      "step": 15,
       "candidate_index": {
         "table": "customer",
         "columns": [
@@ -359,10 +263,104 @@
           "c_id"
         ]
       },
-      "estimated_cost": 8.3,
+      "estimated_cost": 8.43,
       "decision": "proposed",
       "note": "query_id=Q6",
-      "timestamp": 1785537084.9875836
+      "timestamp": 1785806426.8826063
+    },
+    {
+      "step": 16,
+      "candidate_index": {
+        "table": "customer",
+        "columns": [
+          "c_w_id",
+          "c_d_id",
+          "c_last",
+          "c_first"
+        ]
+      },
+      "estimated_cost": 8.43,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1785806427.156876
+    },
+    {
+      "step": 17,
+      "candidate_index": {
+        "table": "stock",
+        "columns": [
+          "s_w_id",
+          "s_quantity",
+          "s_i_id"
+        ]
+      },
+      "estimated_cost": 8.31,
+      "decision": "proposed",
+      "note": "query_id=Q5",
+      "timestamp": 1785806427.2809064
+    },
+    {
+      "step": 18,
+      "candidate_index": {
+        "table": "customer",
+        "columns": [
+          "c_w_id",
+          "c_d_id",
+          "c_last",
+          "c_first"
+        ]
+      },
+      "estimated_cost": 12840.44,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1785806433.491939
+    },
+    {
+      "step": 19,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_w_id",
+          "o_d_id",
+          "o_id",
+          "o_c_id"
+        ]
+      },
+      "estimated_cost": 12840.44,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1785806433.519659
+    },
+    {
+      "step": 20,
+      "candidate_index": {
+        "table": "stock",
+        "columns": [
+          "s_w_id",
+          "s_quantity",
+          "s_i_id"
+        ]
+      },
+      "estimated_cost": 12840.44,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1785806433.6334088
+    },
+    {
+      "step": 21,
+      "candidate_index": {
+        "table": "order_line",
+        "columns": [
+          "ol_w_id",
+          "ol_d_id",
+          "ol_o_id",
+          "ol_i_id"
+        ]
+      },
+      "estimated_cost": 1420.73,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1785806442.1981769
     },
     {
       "step": 22,
@@ -372,14 +370,13 @@
           "c_w_id",
           "c_d_id",
           "c_last",
-          "c_first",
-          "c_id"
+          "c_first"
         ]
       },
-      "estimated_cost": 10198.13,
+      "estimated_cost": 372.8,
       "decision": "proposed",
-      "note": "query_id=Q12",
-      "timestamp": 1785537085.0133932
+      "note": "query_id=Q7",
+      "timestamp": 1785806442.4585822
     },
     {
       "step": 23,
@@ -392,10 +389,10 @@
           "o_id"
         ]
       },
-      "estimated_cost": 2.69,
+      "estimated_cost": 8.31,
       "decision": "proposed",
       "note": "query_id=Q7",
-      "timestamp": 1785537085.0420442
+      "timestamp": 1785806442.486794
     },
     {
       "step": 24,
@@ -408,13 +405,154 @@
           "c_first"
         ]
       },
+      "estimated_cost": 8.31,
+      "decision": "proposed",
+      "note": "query_id=Q3",
+      "timestamp": 1785806442.742857
+    },
+    {
+      "step": 25,
+      "candidate_index": {
+        "table": "stock",
+        "columns": [
+          "s_w_id",
+          "s_quantity",
+          "s_i_id"
+        ]
+      },
+      "estimated_cost": 664.06,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1785806452.0934238
+    },
+    {
+      "step": 26,
+      "candidate_index": {
+        "table": "order_line",
+        "columns": [
+          "ol_w_id",
+          "ol_d_id",
+          "ol_o_id",
+          "ol_i_id"
+        ]
+      },
+      "estimated_cost": 24.44,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1785806452.3515542
+    },
+    {
+      "step": 27,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_w_id",
+          "o_d_id",
+          "o_c_id",
+          "o_id"
+        ]
+      },
+      "estimated_cost": 1843.94,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1785806452.3805873
+    },
+    {
+      "step": 28,
+      "candidate_index": {
+        "table": "customer",
+        "columns": [
+          "c_w_id",
+          "c_d_id",
+          "c_last",
+          "c_first"
+        ]
+      },
+      "estimated_cost": 12840.44,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1785806452.6365528
+    },
+    {
+      "step": 29,
+      "candidate_index": {
+        "table": "customer",
+        "columns": [
+          "c_w_id",
+          "c_d_id",
+          "c_last",
+          "c_first"
+        ]
+      },
+      "estimated_cost": 8.43,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1785806459.6165543
+    },
+    {
+      "step": 30,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_w_id",
+          "o_d_id",
+          "o_c_id",
+          "o_id"
+        ]
+      },
+      "estimated_cost": 8.31,
+      "decision": "proposed",
+      "note": "query_id=Q7",
+      "timestamp": 1785806459.6447136
+    },
+    {
+      "step": 31,
+      "candidate_index": {
+        "table": "stock",
+        "columns": [
+          "s_w_id",
+          "s_quantity",
+          "s_i_id"
+        ]
+      },
+      "estimated_cost": 678.71,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1785806459.8654566
+    },
+    {
+      "step": 32,
+      "candidate_index": {
+        "table": "new_order",
+        "columns": [
+          "no_w_id",
+          "no_d_id",
+          "no_o_id"
+        ]
+      },
+      "estimated_cost": 0.32,
+      "decision": "proposed",
+      "note": "query_id=Q9",
+      "timestamp": 1785806459.8716695
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "customer",
+        "columns": [
+          "c_w_id",
+          "c_d_id",
+          "c_last",
+          "c_first"
+        ]
+      },
       "estimated_cost": null,
       "decision": "accepted",
       "note": "final recommendation",
-      "timestamp": 1785537117.9362226
+      "timestamp": 1785806492.5891623
     },
     {
-      "step": 24,
+      "step": 33,
       "candidate_index": {
         "table": "orders",
         "columns": [
@@ -427,27 +565,25 @@
       "estimated_cost": null,
       "decision": "accepted",
       "note": "final recommendation",
-      "timestamp": 1785537117.9362235
+      "timestamp": 1785806492.5891633
     },
     {
-      "step": 24,
+      "step": 33,
       "candidate_index": {
-        "table": "order_line",
+        "table": "stock",
         "columns": [
-          "ol_w_id",
-          "ol_d_id",
-          "ol_o_id",
-          "ol_i_id",
-          "ol_amount"
+          "s_w_id",
+          "s_quantity",
+          "s_i_id"
         ]
       },
       "estimated_cost": null,
       "decision": "accepted",
       "note": "final recommendation",
-      "timestamp": 1785537117.9362237
+      "timestamp": 1785806492.5891635
     },
     {
-      "step": 24,
+      "step": 33,
       "candidate_index": {
         "table": "customer",
         "columns": [
@@ -460,10 +596,10 @@
       "estimated_cost": null,
       "decision": "rejected",
       "note": "tried but not in final recommendation",
-      "timestamp": 1785537117.936246
+      "timestamp": 1785806492.589189
     },
     {
-      "step": 24,
+      "step": 33,
       "candidate_index": {
         "table": "customer",
         "columns": [
@@ -477,24 +613,10 @@
       "estimated_cost": null,
       "decision": "rejected",
       "note": "tried but not in final recommendation",
-      "timestamp": 1785537117.9362469
+      "timestamp": 1785806492.58919
     },
     {
-      "step": 24,
-      "candidate_index": {
-        "table": "district",
-        "columns": [
-          "d_w_id",
-          "d_id"
-        ]
-      },
-      "estimated_cost": null,
-      "decision": "rejected",
-      "note": "tried but not in final recommendation",
-      "timestamp": 1785537117.936247
-    },
-    {
-      "step": 24,
+      "step": 33,
       "candidate_index": {
         "table": "new_order",
         "columns": [
@@ -506,25 +628,26 @@
       "estimated_cost": null,
       "decision": "rejected",
       "note": "tried but not in final recommendation",
-      "timestamp": 1785537117.9362473
+      "timestamp": 1785806492.5891902
     },
     {
-      "step": 24,
+      "step": 33,
       "candidate_index": {
-        "table": "orders",
+        "table": "order_line",
         "columns": [
-          "o_w_id",
-          "o_d_id",
-          "o_c_id"
+          "ol_w_id",
+          "ol_d_id",
+          "ol_o_id",
+          "ol_i_id"
         ]
       },
       "estimated_cost": null,
       "decision": "rejected",
       "note": "tried but not in final recommendation",
-      "timestamp": 1785537117.9362476
+      "timestamp": 1785806492.5891907
     },
     {
-      "step": 24,
+      "step": 33,
       "candidate_index": {
         "table": "orders",
         "columns": [
@@ -537,10 +660,10 @@
       "estimated_cost": null,
       "decision": "rejected",
       "note": "tried but not in final recommendation",
-      "timestamp": 1785537117.9362478
+      "timestamp": 1785806492.589191
     },
     {
-      "step": 24,
+      "step": 33,
       "candidate_index": {
         "table": "stock",
         "columns": [
@@ -552,35 +675,7 @@
       "estimated_cost": null,
       "decision": "rejected",
       "note": "tried but not in final recommendation",
-      "timestamp": 1785537117.936248
-    },
-    {
-      "step": 24,
-      "candidate_index": {
-        "table": "stock",
-        "columns": [
-          "s_w_id",
-          "s_quantity",
-          "s_i_id"
-        ]
-      },
-      "estimated_cost": null,
-      "decision": "rejected",
-      "note": "tried but not in final recommendation",
-      "timestamp": 1785537117.9362485
-    },
-    {
-      "step": 24,
-      "candidate_index": {
-        "table": "warehouse",
-        "columns": [
-          "w_id"
-        ]
-      },
-      "estimated_cost": null,
-      "decision": "rejected",
-      "note": "tried but not in final recommendation",
-      "timestamp": 1785537117.936249
+      "timestamp": 1785806492.5891912
     }
   ]
 }

@@ -1,0 +1,685 @@
+query_id,recommended_indexes,llm_reasoning_text,execution_time_ms_after,improvement_vs_baseline
+Q1,"[{""table"": ""subscriber"", ""columns"": [""sub_nbr""]}, {""table"": ""subscriber"", ""columns"": [""vlr_location"", ""s_id"", ""msc_location""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""bit_2"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""s_id"", ""vlr_location""]}, {""table"": ""subscriber"", ""columns"": [""msc_location"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""byte2_1"", ""s_id""]}, {""table"": ""special_facility"", ""columns"": [""is_active"", ""sf_type""]}, {""table"": ""call_forwarding"", ""columns"": [""start_time""]}]","After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:
+
+---
+
+### subscriber(sub_nbr)
+- **Targets**: Q2
+- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** — a ~248× improvement. `sub_nbr` is a high-frequency TATP lookup pattern.
+
+---
+
+### subscriber(vlr_location, s_id, msc_location)
+- **Targets**: Q7 (primary), provides covering columns for join-side lookups
+- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 — a 3-6× improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.
+
+---
+
+### subscriber(bit_1, bit_2, s_id)
+- **Targets**: Q8
+- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81–8.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.
+
+---
+
+### subscriber(bit_1, s_id, vlr_location)
+- **Targets**: Q10 (primary), Q11 (secondary)
+- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.
+
+---
+
+### subscriber(msc_location, s_id)
+- **Targets**: Q11 (primary)
+- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** — a 1.7× improvement.
+
+---
+
+### subscriber(byte2_1, s_id)
+- **Targets**: Q12
+- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.
+
+---
+
+### special_facility(is_active, sf_type)
+- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5
+- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).
+
+---
+
+### call_forwarding(start_time)
+- **Targets**: Q9
+- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.
+
+---
+
+### Indexes deliberately NOT recommended:
+- **special_facility(is_active, s_id, sf_type)**: Tested — cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.
+- **access_info(s_id, ai_type, data1)**: Not needed — Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.
+- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.
+",0.007,-16.67
+Q2,"[{""table"": ""subscriber"", ""columns"": [""sub_nbr""]}, {""table"": ""subscriber"", ""columns"": [""vlr_location"", ""s_id"", ""msc_location""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""bit_2"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""s_id"", ""vlr_location""]}, {""table"": ""subscriber"", ""columns"": [""msc_location"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""byte2_1"", ""s_id""]}, {""table"": ""special_facility"", ""columns"": [""is_active"", ""sf_type""]}, {""table"": ""call_forwarding"", ""columns"": [""start_time""]}]","After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:
+
+---
+
+### subscriber(sub_nbr)
+- **Targets**: Q2
+- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** — a ~248× improvement. `sub_nbr` is a high-frequency TATP lookup pattern.
+
+---
+
+### subscriber(vlr_location, s_id, msc_location)
+- **Targets**: Q7 (primary), provides covering columns for join-side lookups
+- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 — a 3-6× improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.
+
+---
+
+### subscriber(bit_1, bit_2, s_id)
+- **Targets**: Q8
+- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81–8.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.
+
+---
+
+### subscriber(bit_1, s_id, vlr_location)
+- **Targets**: Q10 (primary), Q11 (secondary)
+- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.
+
+---
+
+### subscriber(msc_location, s_id)
+- **Targets**: Q11 (primary)
+- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** — a 1.7× improvement.
+
+---
+
+### subscriber(byte2_1, s_id)
+- **Targets**: Q12
+- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.
+
+---
+
+### special_facility(is_active, sf_type)
+- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5
+- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).
+
+---
+
+### call_forwarding(start_time)
+- **Targets**: Q9
+- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.
+
+---
+
+### Indexes deliberately NOT recommended:
+- **special_facility(is_active, s_id, sf_type)**: Tested — cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.
+- **access_info(s_id, ai_type, data1)**: Not needed — Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.
+- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.
+",0.012,99.7
+Q3,"[{""table"": ""subscriber"", ""columns"": [""sub_nbr""]}, {""table"": ""subscriber"", ""columns"": [""vlr_location"", ""s_id"", ""msc_location""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""bit_2"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""s_id"", ""vlr_location""]}, {""table"": ""subscriber"", ""columns"": [""msc_location"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""byte2_1"", ""s_id""]}, {""table"": ""special_facility"", ""columns"": [""is_active"", ""sf_type""]}, {""table"": ""call_forwarding"", ""columns"": [""start_time""]}]","After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:
+
+---
+
+### subscriber(sub_nbr)
+- **Targets**: Q2
+- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** — a ~248× improvement. `sub_nbr` is a high-frequency TATP lookup pattern.
+
+---
+
+### subscriber(vlr_location, s_id, msc_location)
+- **Targets**: Q7 (primary), provides covering columns for join-side lookups
+- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 — a 3-6× improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.
+
+---
+
+### subscriber(bit_1, bit_2, s_id)
+- **Targets**: Q8
+- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81–8.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.
+
+---
+
+### subscriber(bit_1, s_id, vlr_location)
+- **Targets**: Q10 (primary), Q11 (secondary)
+- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.
+
+---
+
+### subscriber(msc_location, s_id)
+- **Targets**: Q11 (primary)
+- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** — a 1.7× improvement.
+
+---
+
+### subscriber(byte2_1, s_id)
+- **Targets**: Q12
+- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.
+
+---
+
+### special_facility(is_active, sf_type)
+- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5
+- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).
+
+---
+
+### call_forwarding(start_time)
+- **Targets**: Q9
+- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.
+
+---
+
+### Indexes deliberately NOT recommended:
+- **special_facility(is_active, s_id, sf_type)**: Tested — cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.
+- **access_info(s_id, ai_type, data1)**: Not needed — Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.
+- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.
+",0.01,-42.86
+Q4,"[{""table"": ""subscriber"", ""columns"": [""sub_nbr""]}, {""table"": ""subscriber"", ""columns"": [""vlr_location"", ""s_id"", ""msc_location""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""bit_2"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""s_id"", ""vlr_location""]}, {""table"": ""subscriber"", ""columns"": [""msc_location"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""byte2_1"", ""s_id""]}, {""table"": ""special_facility"", ""columns"": [""is_active"", ""sf_type""]}, {""table"": ""call_forwarding"", ""columns"": [""start_time""]}]","After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:
+
+---
+
+### subscriber(sub_nbr)
+- **Targets**: Q2
+- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** — a ~248× improvement. `sub_nbr` is a high-frequency TATP lookup pattern.
+
+---
+
+### subscriber(vlr_location, s_id, msc_location)
+- **Targets**: Q7 (primary), provides covering columns for join-side lookups
+- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 — a 3-6× improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.
+
+---
+
+### subscriber(bit_1, bit_2, s_id)
+- **Targets**: Q8
+- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81–8.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.
+
+---
+
+### subscriber(bit_1, s_id, vlr_location)
+- **Targets**: Q10 (primary), Q11 (secondary)
+- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.
+
+---
+
+### subscriber(msc_location, s_id)
+- **Targets**: Q11 (primary)
+- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** — a 1.7× improvement.
+
+---
+
+### subscriber(byte2_1, s_id)
+- **Targets**: Q12
+- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.
+
+---
+
+### special_facility(is_active, sf_type)
+- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5
+- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).
+
+---
+
+### call_forwarding(start_time)
+- **Targets**: Q9
+- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.
+
+---
+
+### Indexes deliberately NOT recommended:
+- **special_facility(is_active, s_id, sf_type)**: Tested — cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.
+- **access_info(s_id, ai_type, data1)**: Not needed — Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.
+- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.
+",0.007,36.36
+Q5,"[{""table"": ""subscriber"", ""columns"": [""sub_nbr""]}, {""table"": ""subscriber"", ""columns"": [""vlr_location"", ""s_id"", ""msc_location""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""bit_2"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""s_id"", ""vlr_location""]}, {""table"": ""subscriber"", ""columns"": [""msc_location"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""byte2_1"", ""s_id""]}, {""table"": ""special_facility"", ""columns"": [""is_active"", ""sf_type""]}, {""table"": ""call_forwarding"", ""columns"": [""start_time""]}]","After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:
+
+---
+
+### subscriber(sub_nbr)
+- **Targets**: Q2
+- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** — a ~248× improvement. `sub_nbr` is a high-frequency TATP lookup pattern.
+
+---
+
+### subscriber(vlr_location, s_id, msc_location)
+- **Targets**: Q7 (primary), provides covering columns for join-side lookups
+- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 — a 3-6× improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.
+
+---
+
+### subscriber(bit_1, bit_2, s_id)
+- **Targets**: Q8
+- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81–8.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.
+
+---
+
+### subscriber(bit_1, s_id, vlr_location)
+- **Targets**: Q10 (primary), Q11 (secondary)
+- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.
+
+---
+
+### subscriber(msc_location, s_id)
+- **Targets**: Q11 (primary)
+- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** — a 1.7× improvement.
+
+---
+
+### subscriber(byte2_1, s_id)
+- **Targets**: Q12
+- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.
+
+---
+
+### special_facility(is_active, sf_type)
+- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5
+- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).
+
+---
+
+### call_forwarding(start_time)
+- **Targets**: Q9
+- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.
+
+---
+
+### Indexes deliberately NOT recommended:
+- **special_facility(is_active, s_id, sf_type)**: Tested — cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.
+- **access_info(s_id, ai_type, data1)**: Not needed — Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.
+- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.
+",0.013,7.14
+Q6,"[{""table"": ""subscriber"", ""columns"": [""sub_nbr""]}, {""table"": ""subscriber"", ""columns"": [""vlr_location"", ""s_id"", ""msc_location""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""bit_2"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""s_id"", ""vlr_location""]}, {""table"": ""subscriber"", ""columns"": [""msc_location"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""byte2_1"", ""s_id""]}, {""table"": ""special_facility"", ""columns"": [""is_active"", ""sf_type""]}, {""table"": ""call_forwarding"", ""columns"": [""start_time""]}]","After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:
+
+---
+
+### subscriber(sub_nbr)
+- **Targets**: Q2
+- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** — a ~248× improvement. `sub_nbr` is a high-frequency TATP lookup pattern.
+
+---
+
+### subscriber(vlr_location, s_id, msc_location)
+- **Targets**: Q7 (primary), provides covering columns for join-side lookups
+- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 — a 3-6× improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.
+
+---
+
+### subscriber(bit_1, bit_2, s_id)
+- **Targets**: Q8
+- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81–8.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.
+
+---
+
+### subscriber(bit_1, s_id, vlr_location)
+- **Targets**: Q10 (primary), Q11 (secondary)
+- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.
+
+---
+
+### subscriber(msc_location, s_id)
+- **Targets**: Q11 (primary)
+- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** — a 1.7× improvement.
+
+---
+
+### subscriber(byte2_1, s_id)
+- **Targets**: Q12
+- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.
+
+---
+
+### special_facility(is_active, sf_type)
+- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5
+- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).
+
+---
+
+### call_forwarding(start_time)
+- **Targets**: Q9
+- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.
+
+---
+
+### Indexes deliberately NOT recommended:
+- **special_facility(is_active, s_id, sf_type)**: Tested — cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.
+- **access_info(s_id, ai_type, data1)**: Not needed — Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.
+- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.
+",0.668,97.86
+Q7,"[{""table"": ""subscriber"", ""columns"": [""sub_nbr""]}, {""table"": ""subscriber"", ""columns"": [""vlr_location"", ""s_id"", ""msc_location""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""bit_2"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""s_id"", ""vlr_location""]}, {""table"": ""subscriber"", ""columns"": [""msc_location"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""byte2_1"", ""s_id""]}, {""table"": ""special_facility"", ""columns"": [""is_active"", ""sf_type""]}, {""table"": ""call_forwarding"", ""columns"": [""start_time""]}]","After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:
+
+---
+
+### subscriber(sub_nbr)
+- **Targets**: Q2
+- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** — a ~248× improvement. `sub_nbr` is a high-frequency TATP lookup pattern.
+
+---
+
+### subscriber(vlr_location, s_id, msc_location)
+- **Targets**: Q7 (primary), provides covering columns for join-side lookups
+- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 — a 3-6× improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.
+
+---
+
+### subscriber(bit_1, bit_2, s_id)
+- **Targets**: Q8
+- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81–8.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.
+
+---
+
+### subscriber(bit_1, s_id, vlr_location)
+- **Targets**: Q10 (primary), Q11 (secondary)
+- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.
+
+---
+
+### subscriber(msc_location, s_id)
+- **Targets**: Q11 (primary)
+- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** — a 1.7× improvement.
+
+---
+
+### subscriber(byte2_1, s_id)
+- **Targets**: Q12
+- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.
+
+---
+
+### special_facility(is_active, sf_type)
+- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5
+- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).
+
+---
+
+### call_forwarding(start_time)
+- **Targets**: Q9
+- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.
+
+---
+
+### Indexes deliberately NOT recommended:
+- **special_facility(is_active, s_id, sf_type)**: Tested — cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.
+- **access_info(s_id, ai_type, data1)**: Not needed — Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.
+- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.
+",0.745,85.71
+Q8,"[{""table"": ""subscriber"", ""columns"": [""sub_nbr""]}, {""table"": ""subscriber"", ""columns"": [""vlr_location"", ""s_id"", ""msc_location""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""bit_2"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""s_id"", ""vlr_location""]}, {""table"": ""subscriber"", ""columns"": [""msc_location"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""byte2_1"", ""s_id""]}, {""table"": ""special_facility"", ""columns"": [""is_active"", ""sf_type""]}, {""table"": ""call_forwarding"", ""columns"": [""start_time""]}]","After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:
+
+---
+
+### subscriber(sub_nbr)
+- **Targets**: Q2
+- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** — a ~248× improvement. `sub_nbr` is a high-frequency TATP lookup pattern.
+
+---
+
+### subscriber(vlr_location, s_id, msc_location)
+- **Targets**: Q7 (primary), provides covering columns for join-side lookups
+- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 — a 3-6× improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.
+
+---
+
+### subscriber(bit_1, bit_2, s_id)
+- **Targets**: Q8
+- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81–8.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.
+
+---
+
+### subscriber(bit_1, s_id, vlr_location)
+- **Targets**: Q10 (primary), Q11 (secondary)
+- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.
+
+---
+
+### subscriber(msc_location, s_id)
+- **Targets**: Q11 (primary)
+- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** — a 1.7× improvement.
+
+---
+
+### subscriber(byte2_1, s_id)
+- **Targets**: Q12
+- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.
+
+---
+
+### special_facility(is_active, sf_type)
+- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5
+- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).
+
+---
+
+### call_forwarding(start_time)
+- **Targets**: Q9
+- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.
+
+---
+
+### Indexes deliberately NOT recommended:
+- **special_facility(is_active, s_id, sf_type)**: Tested — cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.
+- **access_info(s_id, ai_type, data1)**: Not needed — Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.
+- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.
+",0.008,46.67
+Q9,"[{""table"": ""subscriber"", ""columns"": [""sub_nbr""]}, {""table"": ""subscriber"", ""columns"": [""vlr_location"", ""s_id"", ""msc_location""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""bit_2"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""s_id"", ""vlr_location""]}, {""table"": ""subscriber"", ""columns"": [""msc_location"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""byte2_1"", ""s_id""]}, {""table"": ""special_facility"", ""columns"": [""is_active"", ""sf_type""]}, {""table"": ""call_forwarding"", ""columns"": [""start_time""]}]","After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:
+
+---
+
+### subscriber(sub_nbr)
+- **Targets**: Q2
+- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** — a ~248× improvement. `sub_nbr` is a high-frequency TATP lookup pattern.
+
+---
+
+### subscriber(vlr_location, s_id, msc_location)
+- **Targets**: Q7 (primary), provides covering columns for join-side lookups
+- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 — a 3-6× improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.
+
+---
+
+### subscriber(bit_1, bit_2, s_id)
+- **Targets**: Q8
+- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81–8.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.
+
+---
+
+### subscriber(bit_1, s_id, vlr_location)
+- **Targets**: Q10 (primary), Q11 (secondary)
+- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.
+
+---
+
+### subscriber(msc_location, s_id)
+- **Targets**: Q11 (primary)
+- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** — a 1.7× improvement.
+
+---
+
+### subscriber(byte2_1, s_id)
+- **Targets**: Q12
+- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.
+
+---
+
+### special_facility(is_active, sf_type)
+- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5
+- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).
+
+---
+
+### call_forwarding(start_time)
+- **Targets**: Q9
+- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.
+
+---
+
+### Indexes deliberately NOT recommended:
+- **special_facility(is_active, s_id, sf_type)**: Tested — cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.
+- **access_info(s_id, ai_type, data1)**: Not needed — Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.
+- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.
+",7.31,76.98
+Q10,"[{""table"": ""subscriber"", ""columns"": [""sub_nbr""]}, {""table"": ""subscriber"", ""columns"": [""vlr_location"", ""s_id"", ""msc_location""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""bit_2"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""s_id"", ""vlr_location""]}, {""table"": ""subscriber"", ""columns"": [""msc_location"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""byte2_1"", ""s_id""]}, {""table"": ""special_facility"", ""columns"": [""is_active"", ""sf_type""]}, {""table"": ""call_forwarding"", ""columns"": [""start_time""]}]","After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:
+
+---
+
+### subscriber(sub_nbr)
+- **Targets**: Q2
+- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** — a ~248× improvement. `sub_nbr` is a high-frequency TATP lookup pattern.
+
+---
+
+### subscriber(vlr_location, s_id, msc_location)
+- **Targets**: Q7 (primary), provides covering columns for join-side lookups
+- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 — a 3-6× improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.
+
+---
+
+### subscriber(bit_1, bit_2, s_id)
+- **Targets**: Q8
+- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81–8.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.
+
+---
+
+### subscriber(bit_1, s_id, vlr_location)
+- **Targets**: Q10 (primary), Q11 (secondary)
+- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.
+
+---
+
+### subscriber(msc_location, s_id)
+- **Targets**: Q11 (primary)
+- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** — a 1.7× improvement.
+
+---
+
+### subscriber(byte2_1, s_id)
+- **Targets**: Q12
+- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.
+
+---
+
+### special_facility(is_active, sf_type)
+- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5
+- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).
+
+---
+
+### call_forwarding(start_time)
+- **Targets**: Q9
+- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.
+
+---
+
+### Indexes deliberately NOT recommended:
+- **special_facility(is_active, s_id, sf_type)**: Tested — cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.
+- **access_info(s_id, ai_type, data1)**: Not needed — Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.
+- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.
+",41.918,9.43
+Q11,"[{""table"": ""subscriber"", ""columns"": [""sub_nbr""]}, {""table"": ""subscriber"", ""columns"": [""vlr_location"", ""s_id"", ""msc_location""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""bit_2"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""s_id"", ""vlr_location""]}, {""table"": ""subscriber"", ""columns"": [""msc_location"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""byte2_1"", ""s_id""]}, {""table"": ""special_facility"", ""columns"": [""is_active"", ""sf_type""]}, {""table"": ""call_forwarding"", ""columns"": [""start_time""]}]","After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:
+
+---
+
+### subscriber(sub_nbr)
+- **Targets**: Q2
+- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** — a ~248× improvement. `sub_nbr` is a high-frequency TATP lookup pattern.
+
+---
+
+### subscriber(vlr_location, s_id, msc_location)
+- **Targets**: Q7 (primary), provides covering columns for join-side lookups
+- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 — a 3-6× improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.
+
+---
+
+### subscriber(bit_1, bit_2, s_id)
+- **Targets**: Q8
+- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81–8.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.
+
+---
+
+### subscriber(bit_1, s_id, vlr_location)
+- **Targets**: Q10 (primary), Q11 (secondary)
+- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.
+
+---
+
+### subscriber(msc_location, s_id)
+- **Targets**: Q11 (primary)
+- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** — a 1.7× improvement.
+
+---
+
+### subscriber(byte2_1, s_id)
+- **Targets**: Q12
+- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.
+
+---
+
+### special_facility(is_active, sf_type)
+- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5
+- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).
+
+---
+
+### call_forwarding(start_time)
+- **Targets**: Q9
+- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.
+
+---
+
+### Indexes deliberately NOT recommended:
+- **special_facility(is_active, s_id, sf_type)**: Tested — cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.
+- **access_info(s_id, ai_type, data1)**: Not needed — Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.
+- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.
+",36.899,16.37
+Q12,"[{""table"": ""subscriber"", ""columns"": [""sub_nbr""]}, {""table"": ""subscriber"", ""columns"": [""vlr_location"", ""s_id"", ""msc_location""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""bit_2"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""bit_1"", ""s_id"", ""vlr_location""]}, {""table"": ""subscriber"", ""columns"": [""msc_location"", ""s_id""]}, {""table"": ""subscriber"", ""columns"": [""byte2_1"", ""s_id""]}, {""table"": ""special_facility"", ""columns"": [""is_active"", ""sf_type""]}, {""table"": ""call_forwarding"", ""columns"": [""start_time""]}]","After exhaustive cost estimation across all 12 queries, here is the rationale for each recommended index:
+
+---
+
+### subscriber(sub_nbr)
+- **Targets**: Q2
+- **Why**: Q2 looks up a subscriber by the alternate key `sub_nbr`. Without an index, the planner does a full seq scan (cost ~2090). With this index it drops to an index scan at cost **8.44** — a ~248× improvement. `sub_nbr` is a high-frequency TATP lookup pattern.
+
+---
+
+### subscriber(vlr_location, s_id, msc_location)
+- **Targets**: Q7 (primary), provides covering columns for join-side lookups
+- **Why**: Q7 scans `vlr_location BETWEEN 1000 AND 2000` and selects `s_id, msc_location`. A covering index on these three columns enables an **Index Only Scan** at cost **386.92**, vs a Bitmap Heap Scan at 1148 or seq scan at 2340 — a 3-6× improvement. The `s_id` and `msc_location` inclusion means zero heap fetches.
+
+---
+
+### subscriber(bit_1, bit_2, s_id)
+- **Targets**: Q8
+- **Why**: Q8 filters `bit_1 = 1 AND bit_2 = 0 AND s_id < 100`. This composite index enables an **Index Only Scan** at cost **8.81–8.86**, marginally better than the PK-based scan (10.5) and far better than a seq scan. The `s_id` trailing column covers the range predicate without heap access.
+
+---
+
+### subscriber(bit_1, s_id, vlr_location)
+- **Targets**: Q10 (primary), Q11 (secondary)
+- **Why**: Q10 joins subscriber (bit_1=1) to special_facility (is_active=1) and groups by vlr_location. This covering index reduces the subscriber hash-build to an **Index Only Scan**, dropping Q10 from ~8885 to **8474**. It also helps Q11 reduce to **11511** (vs 11645) by providing a more efficient subscriber scan for the bit_1-filtered side, though Q11's primary driver is the msc_location index.
+
+---
+
+### subscriber(msc_location, s_id)
+- **Targets**: Q11 (primary)
+- **Why**: Q11 filters `msc_location BETWEEN 1 AND 500`. This covering index (msc_location + s_id) enables an **Index Only Scan** that builds the subscriber hash table at cost ~181 instead of a seq scan at ~2340. Total Q11 cost drops from 10141 (baseline) to **9510** — a 1.7× improvement.
+
+---
+
+### subscriber(byte2_1, s_id)
+- **Targets**: Q12
+- **Why**: Q12 joins subscriber (byte2_1 > 128) to access_info and aggregates by ai_type. The index enables an **Index Only Scan** on ~50% of subscribers (byte2_1 > 128), reducing the subscriber-side hash build from a full seq scan (2090) to ~1241. Total Q12 cost drops from ~7517 to **6478**.
+
+---
+
+### special_facility(is_active, sf_type)
+- **Targets**: Q6 (primary), cross-benefits Q10/Q11/Q5
+- **Why**: Q6 counts rows where `is_active=0 AND sf_type=2`. With `is_active` leading (higher selectivity for equality filtering), the planner uses an **Index Only Scan** at cost **440.86** vs a full seq scan. Ordering `(is_active, sf_type)` is better than `(sf_type, is_active)` (507 vs 440). Note: for Q10/Q11 the planner still prefers a seq scan on special_facility because ~50% of rows have `is_active=1`, making a seq scan competitive for the hash-join build side. For Q5, the existing PK already handles the point-lookup efficiently (cost 16.9).
+
+---
+
+### call_forwarding(start_time)
+- **Targets**: Q9
+- **Why**: Q9 aggregates `COUNT(*)` grouped by `start_time = 8`. Without an index the planner does a full seq scan of call_forwarding (~125K rows). With this index, it uses an **Index Only Scan** reading only the matching `start_time=8` entries for a sorted aggregate at cost **3140** vs a full seq scan. While the absolute cost is still high (the table is large and many rows may match), this is the best single-column option for this access pattern.
+
+---
+
+### Indexes deliberately NOT recommended:
+- **special_facility(is_active, s_id, sf_type)**: Tested — cost 1239 for Q6 vs 440 for (is_active, sf_type). Wider index performs worse due to larger leaf pages.
+- **access_info(s_id, ai_type, data1)**: Not needed — Q3 already uses the composite PK (s_id, ai_type) efficiently. Q12's access_info side is a full scan that the planner prefers for the hash-join outer side.
+- **call_forwarding with covering columns**: Q5 already uses the call_forwarding PK efficiently via a nested loop. No additional index needed.
+",43.08,8.57

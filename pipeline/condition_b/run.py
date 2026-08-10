@@ -10,9 +10,11 @@ Usage:
 No DB extension needed -- uses real temporary indexes (see real_index_estimator.py).
 """
 
+import os
 import sys
 import json
-import os
+import getpass
+
 import psycopg2
 import anthropic
 
@@ -33,10 +35,11 @@ def main():
     with open(schema_workload_path) as f:
         schema_workload = json.load(f)
 
+    pw = os.environ.get("PGPASSWORD") or getpass.getpass("Postgres password for user 'postgres': ")
     conn = psycopg2.connect(
         dbname=schema_workload["schema_name"],
         user=os.getenv("PGUSER", "postgres"),
-        password=os.getenv("PGPASSWORD"),
+        password=pw,
         host=os.getenv("PGHOST", "localhost"),
         port=int(os.getenv("PGPORT", "5432")),
     )
