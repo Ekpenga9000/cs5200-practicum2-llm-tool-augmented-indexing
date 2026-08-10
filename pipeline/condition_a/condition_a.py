@@ -19,8 +19,8 @@ def extract_schema_columns(schema_ddl: str) -> dict[str, set[str]]:
         re.S | re.I,
     ):
         table, cols_block = match.groups()
-        cols = {c.strip().split()[0] for c in cols_block.split(",") if c.strip()}
-        tables[table] = cols
+        cols = {c.strip().split()[0].lower() for c in cols_block.split(",") if c.strip()}
+        tables[table.lower()] = cols
     return tables
 
 
@@ -39,15 +39,16 @@ def validate_index_stmt(stmt: str, schema_cols: dict[str, set[str]]) -> bool:
     if not m:
         return False
     table, cols = m.groups()
-    if table not in schema_cols:
+    table_key = table.lower()
+    if table_key not in schema_cols:
         return False
 
     for entry in cols.split(","):
         entry = entry.strip()
         # First whitespace-separated token is the column name;
         # anything after it (e.g. "text_pattern_ops") is an operator class.
-        col_name = entry.split()[0] if entry.split() else entry
-        if col_name not in schema_cols[table]:
+        col_name = (entry.split()[0] if entry.split() else entry).lower()
+        if col_name not in schema_cols[table_key]:
             return False
 
     return True

@@ -1,0 +1,1367 @@
+{
+  "schema_name": "tpch",
+  "condition": "B",
+  "recommended_indexes": [
+    {
+      "table": "lineitem",
+      "columns": [
+        "l_shipdate",
+        "l_discount",
+        "l_quantity",
+        "l_extendedprice"
+      ]
+    },
+    {
+      "table": "lineitem",
+      "columns": [
+        "l_orderkey",
+        "l_shipdate",
+        "l_extendedprice",
+        "l_discount"
+      ]
+    },
+    {
+      "table": "lineitem",
+      "columns": [
+        "l_orderkey",
+        "l_commitdate",
+        "l_receiptdate"
+      ]
+    },
+    {
+      "table": "lineitem",
+      "columns": [
+        "l_receiptdate",
+        "l_shipmode",
+        "l_orderkey",
+        "l_commitdate",
+        "l_shipdate"
+      ]
+    },
+    {
+      "table": "lineitem",
+      "columns": [
+        "l_orderkey",
+        "l_returnflag",
+        "l_extendedprice",
+        "l_discount"
+      ]
+    },
+    {
+      "table": "lineitem",
+      "columns": [
+        "l_suppkey",
+        "l_orderkey",
+        "l_receiptdate",
+        "l_commitdate"
+      ]
+    },
+    {
+      "table": "lineitem",
+      "columns": [
+        "l_shipdate",
+        "l_orderkey",
+        "l_suppkey",
+        "l_extendedprice",
+        "l_discount"
+      ]
+    },
+    {
+      "table": "lineitem",
+      "columns": [
+        "l_partkey",
+        "l_quantity"
+      ]
+    },
+    {
+      "table": "lineitem",
+      "columns": [
+        "l_partkey",
+        "l_suppkey",
+        "l_shipdate",
+        "l_quantity"
+      ]
+    },
+    {
+      "table": "lineitem",
+      "columns": [
+        "l_orderkey",
+        "l_quantity"
+      ]
+    },
+    {
+      "table": "orders",
+      "columns": [
+        "o_orderdate",
+        "o_custkey",
+        "o_orderkey",
+        "o_shippriority"
+      ]
+    },
+    {
+      "table": "orders",
+      "columns": [
+        "o_orderdate",
+        "o_orderpriority",
+        "o_orderkey"
+      ]
+    },
+    {
+      "table": "orders",
+      "columns": [
+        "o_custkey",
+        "o_orderkey"
+      ]
+    },
+    {
+      "table": "orders",
+      "columns": [
+        "o_orderstatus",
+        "o_orderkey"
+      ]
+    },
+    {
+      "table": "customer",
+      "columns": [
+        "c_mktsegment",
+        "c_custkey"
+      ]
+    },
+    {
+      "table": "part",
+      "columns": [
+        "p_size",
+        "p_type",
+        "p_partkey",
+        "p_mfgr"
+      ]
+    },
+    {
+      "table": "part",
+      "columns": [
+        "p_type",
+        "p_partkey"
+      ]
+    },
+    {
+      "table": "part",
+      "columns": [
+        "p_brand",
+        "p_type",
+        "p_size",
+        "p_partkey"
+      ]
+    },
+    {
+      "table": "part",
+      "columns": [
+        "p_partkey",
+        "p_brand",
+        "p_container"
+      ]
+    },
+    {
+      "table": "part",
+      "columns": [
+        "p_name",
+        "p_partkey"
+      ]
+    },
+    {
+      "table": "partsupp",
+      "columns": [
+        "ps_partkey",
+        "ps_suppkey",
+        "ps_supplycost"
+      ]
+    },
+    {
+      "table": "partsupp",
+      "columns": [
+        "ps_suppkey",
+        "ps_partkey",
+        "ps_supplycost",
+        "ps_availqty"
+      ]
+    },
+    {
+      "table": "supplier",
+      "columns": [
+        "s_nationkey",
+        "s_suppkey"
+      ]
+    }
+  ],
+  "llm_reasoning_text": "\n## Index Recommendation Reasoning\n\n### LINEITEM indexes (largest table \u2014 most impactful)\n\n1. **`lineitem(l_shipdate, l_discount, l_quantity, l_extendedprice)`** \u2014 Covers Q6 with a perfect index-only scan (cost drops from ~170K to ~35K). Also accelerates Q14 and Q15 shipdate range scans as a bitmap index.\n\n2. **`lineitem(l_orderkey, l_shipdate, l_extendedprice, l_discount)`** \u2014 Enables a nested-loop index lookup for Q3 (l_orderkey + l_shipdate filter), reducing cost from ~283K to ~189K. The leading l_orderkey column also benefits Q4 and general join probes.\n\n3. **`lineitem(l_orderkey, l_commitdate, l_receiptdate)`** \u2014 Key for Q4's EXISTS subquery. Allows index-only scan per order key checking commitdate < receiptdate, reducing cost from ~164K to ~57K. Also supports Q12's date-based filtering.\n\n4. **`lineitem(l_receiptdate, l_shipmode, l_orderkey, l_commitdate, l_shipdate)`** \u2014 Tailored for Q12 which filters on l_receiptdate range plus l_shipmode IN ('RAIL','AIR'), reducing cost from ~210K to ~76K via index-only scan.\n\n5. **`lineitem(l_orderkey, l_returnflag, l_extendedprice, l_discount)`** \u2014 Serves Q10 which joins on l_orderkey and filters l_returnflag = 'R', enabling a nested-loop index scan and reducing cost from ~175K to ~122K.\n\n6. **`lineitem(l_suppkey, l_orderkey, l_receiptdate, l_commitdate)`** \u2014 Critical for Q21 which probes lineitem by supplier, checking receiptdate > commitdate. Reduces cost from ~493K to ~255K by enabling indexed lookup on l_suppkey.\n\n7. **`lineitem(l_shipdate, l_orderkey, l_suppkey, l_extendedprice, l_discount)`** \u2014 Optimizes Q7 which filters l_shipdate BETWEEN 1995 and 1996 and joins on l_orderkey and l_suppkey, reducing cost from ~195K to ~114K with an index-only range scan.\n\n8. **`lineitem(l_partkey, l_quantity)`** \u2014 Serves Q17's correlated subquery that looks up average l_quantity by l_partkey. Dramatically reduces cost from ~1 billion to ~17K by enabling index-only scans for both the inner AVG subquery and the outer filter.\n\n9. **`lineitem(l_partkey, l_suppkey, l_shipdate, l_quantity)`** \u2014 Serves Q20's correlated subquery computing SUM(l_quantity) for specific part/supplier/shipdate combinations. Reduces per-row subquery cost from full seq scan to a narrow index-only scan (from ~186B to ~6.8B overall).\n\n10. **`lineitem(l_orderkey, l_quantity)`** \u2014 Benefits Q18's GROUP BY l_orderkey HAVING SUM(l_quantity) > 312 and the outer join back to lineitem, enabling index-only scans. Reduces cost from ~894K to ~413K.\n\n### ORDERS indexes\n\n11. **`orders(o_orderdate, o_custkey, o_orderkey, o_shippriority)`** \u2014 Covers Q3 (orderdate < date filter, join on custkey), Q5 (orderdate range), Q10 (orderdate range), and Q7/Q8 multi-joins. Enables index-only scans for the date-range access path across many queries.\n\n12. **`orders(o_orderdate, o_orderpriority, o_orderkey)`** \u2014 Specific to Q4's outer orders scan with the date range filter (1996-05-01 to 1996-08-01), enabling an index-only scan and reducing cost from ~164K to ~57K alongside the lineitem index.\n\n13. **`orders(o_custkey, o_orderkey)`** \u2014 Serves Q22's NOT EXISTS anti-join subquery (checking no orders exist per customer), reducing cost from baseline to ~13K. Also helps Q13's left join and Q21.\n\n14. **`orders(o_orderstatus, o_orderkey)`** \u2014 Serves Q21 which filters o_orderstatus = 'F' then probes by o_orderkey in a nested loop.\n\n### CUSTOMER indexes\n\n15. **`customer(c_mktsegment, c_custkey)`** \u2014 Q3 filters c_mktsegment = 'BUILDING' and returns c_custkey. Index-only scan reduces customer access cost dramatically (from seq scan ~4K to index scan ~877).\n\n### PART indexes\n\n16. **`part(p_size, p_type, p_partkey, p_mfgr)`** \u2014 Q2 filters p_size = 21 AND p_type LIKE '%STEEL', enabling index seek on p_size with p_type post-filter, plus covering p_partkey and p_mfgr.\n\n17. **`part(p_type, p_partkey)`** \u2014 Q8 filters p_type = 'MEDIUM BURNISHED STEEL' exactly, enabling an index-only scan (cost ~55) instead of a seq scan.\n\n18. **`part(p_brand, p_type, p_size, p_partkey)`** \u2014 Q16 groups by p_brand, p_type, p_size after filtering p_brand, p_type, p_size IN list. Supports sorted aggregate without extra sort.\n\n19. **`part(p_partkey, p_brand, p_container)`** \u2014 Q17 filters p_brand = 'Brand#51' AND p_container = 'LG CASE'; p_partkey as leading column also serves as a lookup key for joins in Q14/Q19.\n\n20. **`part(p_name, p_partkey)`** \u2014 Q9 filters p_name LIKE '%honeydew%' (no index benefit for leading wildcard but index-only scan still faster) and Q20 filters p_name LIKE 'burlywood%' (prefix match benefits from index scan).\n\n### PARTSUPP indexes\n\n21. **`partsupp(ps_partkey, ps_suppkey, ps_supplycost)`** \u2014 Q2's correlated subquery looks up minimum ps_supplycost per ps_partkey; covering index allows index-only scans for both the outer join and the correlated MIN subquery.\n\n22. **`partsupp(ps_suppkey, ps_partkey, ps_supplycost, ps_availqty)`** \u2014 Q11 joins partsupp to supplier (filtered by nation), then groups by ps_partkey. Index on ps_suppkey as leading column enables direct lookup of partsupp rows per supplier, reducing cost from ~52K to ~8K.\n\n### SUPPLIER indexes\n\n23. **`supplier(s_nationkey, s_suppkey)`** \u2014 Q11 looks up suppliers by nation; this index allows a nested-loop from nation to supplier to partsupp. Also benefits Q2, Q5, Q7, Q20, Q21 which all join supplier on s_nationkey.\n",
+  "tool_call_log": [
+    {
+      "step": 1,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_returnflag",
+          "l_linestatus",
+          "l_quantity",
+          "l_extendedprice",
+          "l_discount",
+          "l_tax"
+        ]
+      },
+      "estimated_cost": 230308.69,
+      "decision": "proposed",
+      "note": "query_id=Q1",
+      "timestamp": 1786336099.0106335
+    },
+    {
+      "step": 2,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_size",
+          "p_type",
+          "p_partkey",
+          "p_mfgr"
+        ]
+      },
+      "estimated_cost": 11976894.17,
+      "decision": "proposed",
+      "note": "query_id=Q2",
+      "timestamp": 1786336100.1410668
+    },
+    {
+      "step": 3,
+      "candidate_index": {
+        "table": "customer",
+        "columns": [
+          "c_mktsegment",
+          "c_custkey"
+        ]
+      },
+      "estimated_cost": 283248.97,
+      "decision": "proposed",
+      "note": "query_id=Q3",
+      "timestamp": 1786336100.8727527
+    },
+    {
+      "step": 4,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_orderdate",
+          "o_custkey",
+          "o_orderkey",
+          "o_shippriority"
+        ]
+      },
+      "estimated_cost": 273900.81,
+      "decision": "proposed",
+      "note": "query_id=Q3",
+      "timestamp": 1786336105.8833196
+    },
+    {
+      "step": 5,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_orderkey",
+          "l_shipdate",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": 189501.86,
+      "decision": "proposed",
+      "note": "query_id=Q3",
+      "timestamp": 1786336116.334349
+    },
+    {
+      "step": 6,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_orderdate",
+          "o_orderpriority",
+          "o_orderkey"
+        ]
+      },
+      "estimated_cost": 164472.44,
+      "decision": "proposed",
+      "note": "query_id=Q4",
+      "timestamp": 1786336130.5919912
+    },
+    {
+      "step": 7,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_orderkey",
+          "l_commitdate",
+          "l_receiptdate"
+        ]
+      },
+      "estimated_cost": 57748.16,
+      "decision": "proposed",
+      "note": "query_id=Q4",
+      "timestamp": 1786336138.4938924
+    },
+    {
+      "step": 8,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_discount",
+          "l_quantity",
+          "l_extendedprice"
+        ]
+      },
+      "estimated_cost": 35630.6,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1786336151.0317974
+    },
+    {
+      "step": 9,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_orderdate",
+          "o_custkey",
+          "o_orderkey"
+        ]
+      },
+      "estimated_cost": 161602.77,
+      "decision": "proposed",
+      "note": "query_id=Q5",
+      "timestamp": 1786336153.7850401
+    },
+    {
+      "step": 10,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_type",
+          "p_partkey"
+        ]
+      },
+      "estimated_cost": 189972.77,
+      "decision": "proposed",
+      "note": "query_id=Q8",
+      "timestamp": 1786336154.4135408
+    },
+    {
+      "step": 11,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_orderdate",
+          "o_custkey",
+          "o_orderkey"
+        ]
+      },
+      "estimated_cost": 175756.73,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786336163.7520087
+    },
+    {
+      "step": 12,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_orderkey",
+          "l_returnflag",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": 122768.47,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786336171.0425842
+    },
+    {
+      "step": 13,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_receiptdate",
+          "l_shipmode",
+          "l_orderkey",
+          "l_commitdate",
+          "l_shipdate"
+        ]
+      },
+      "estimated_cost": 76735.86,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1786336182.932055
+    },
+    {
+      "step": 14,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_partkey",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": 11305.87,
+      "decision": "proposed",
+      "note": "query_id=Q14",
+      "timestamp": 1786336188.5997105
+    },
+    {
+      "step": 15,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_suppkey",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": Infinity,
+      "decision": "proposed",
+      "note": "query_id=Q15",
+      "timestamp": 1786336195.8829653
+    },
+    {
+      "step": 16,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_suppkey",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": 170028.82,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1786336208.5745213
+    },
+    {
+      "step": 17,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_name",
+          "p_partkey"
+        ]
+      },
+      "estimated_cost": 217385.24,
+      "decision": "proposed",
+      "note": "query_id=Q9",
+      "timestamp": 1786336208.982317
+    },
+    {
+      "step": 18,
+      "candidate_index": {
+        "table": "partsupp",
+        "columns": [
+          "ps_partkey",
+          "ps_suppkey",
+          "ps_supplycost"
+        ]
+      },
+      "estimated_cost": 209409.56,
+      "decision": "proposed",
+      "note": "query_id=Q2",
+      "timestamp": 1786336210.6924996
+    },
+    {
+      "step": 19,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_partkey",
+          "p_brand",
+          "p_container"
+        ]
+      },
+      "estimated_cost": 1063642515.82,
+      "decision": "proposed",
+      "note": "query_id=Q17",
+      "timestamp": 1786336211.0750704
+    },
+    {
+      "step": 20,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_custkey",
+          "o_orderkey",
+          "o_orderdate",
+          "o_totalprice"
+        ]
+      },
+      "estimated_cost": 894490.73,
+      "decision": "proposed",
+      "note": "query_id=Q18",
+      "timestamp": 1786336212.6366527
+    },
+    {
+      "step": 21,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_brand",
+          "p_type",
+          "p_size",
+          "p_partkey"
+        ]
+      },
+      "estimated_cost": 40603.22,
+      "decision": "proposed",
+      "note": "query_id=Q16",
+      "timestamp": 1786336222.1577287
+    },
+    {
+      "step": 22,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_partkey",
+          "l_quantity"
+        ]
+      },
+      "estimated_cost": 17116.34,
+      "decision": "proposed",
+      "note": "query_id=Q17",
+      "timestamp": 1786336226.9468386
+    },
+    {
+      "step": 23,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_name",
+          "p_partkey"
+        ]
+      },
+      "estimated_cost": 186413680833.91,
+      "decision": "proposed",
+      "note": "query_id=Q20",
+      "timestamp": 1786336227.3855596
+    },
+    {
+      "step": 24,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_suppkey",
+          "l_orderkey",
+          "l_receiptdate",
+          "l_commitdate"
+        ]
+      },
+      "estimated_cost": 255894.49,
+      "decision": "proposed",
+      "note": "query_id=Q21",
+      "timestamp": 1786336233.156318
+    },
+    {
+      "step": 25,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_custkey"
+        ]
+      },
+      "estimated_cost": 13072.81,
+      "decision": "proposed",
+      "note": "query_id=Q22",
+      "timestamp": 1786336234.6326299
+    },
+    {
+      "step": 26,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_partkey",
+          "l_suppkey",
+          "l_shipdate",
+          "l_quantity"
+        ]
+      },
+      "estimated_cost": 6832731.43,
+      "decision": "proposed",
+      "note": "query_id=Q20",
+      "timestamp": 1786336247.6762738
+    },
+    {
+      "step": 27,
+      "candidate_index": {
+        "table": "supplier",
+        "columns": [
+          "s_nationkey",
+          "s_suppkey"
+        ]
+      },
+      "estimated_cost": 52211.48,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1786336247.8372438
+    },
+    {
+      "step": 28,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_custkey",
+          "o_orderkey"
+        ]
+      },
+      "estimated_cost": 152869.41,
+      "decision": "proposed",
+      "note": "query_id=Q13",
+      "timestamp": 1786336249.2291226
+    },
+    {
+      "step": 29,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_orderkey",
+          "l_quantity"
+        ]
+      },
+      "estimated_cost": 413600.51,
+      "decision": "proposed",
+      "note": "query_id=Q18",
+      "timestamp": 1786336252.726806
+    },
+    {
+      "step": 30,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_orderstatus",
+          "o_orderkey"
+        ]
+      },
+      "estimated_cost": 493247.43,
+      "decision": "proposed",
+      "note": "query_id=Q21",
+      "timestamp": 1786336254.449155
+    },
+    {
+      "step": 31,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_orderkey",
+          "l_suppkey",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": 114037.27,
+      "decision": "proposed",
+      "note": "query_id=Q7",
+      "timestamp": 1786336268.651131
+    },
+    {
+      "step": 32,
+      "candidate_index": {
+        "table": "partsupp",
+        "columns": [
+          "ps_suppkey",
+          "ps_partkey",
+          "ps_supplycost",
+          "ps_availqty"
+        ]
+      },
+      "estimated_cost": 8057.25,
+      "decision": "proposed",
+      "note": "query_id=Q11",
+      "timestamp": 1786336269.5142784
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_orderkey",
+          "l_suppkey",
+          "l_receiptdate",
+          "l_commitdate"
+        ]
+      },
+      "estimated_cost": 210379.28,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1786336274.139605
+    },
+    {
+      "step": 34,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_partkey",
+          "p_type",
+          "p_mfgr"
+        ]
+      },
+      "estimated_cost": 158637.0,
+      "decision": "proposed",
+      "note": "query_id=Q14",
+      "timestamp": 1786336274.62459
+    },
+    {
+      "step": 35,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_returnflag",
+          "l_linestatus",
+          "l_quantity",
+          "l_extendedprice",
+          "l_discount",
+          "l_tax"
+        ]
+      },
+      "estimated_cost": 39213.51,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1786336295.809182
+    },
+    {
+      "step": 36,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_returnflag",
+          "l_linestatus",
+          "l_quantity",
+          "l_extendedprice",
+          "l_discount",
+          "l_tax"
+        ]
+      },
+      "estimated_cost": 230287.95,
+      "decision": "proposed",
+      "note": "query_id=Q1",
+      "timestamp": 1786336315.617109
+    },
+    {
+      "step": 37,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_returnflag",
+          "l_linestatus",
+          "l_quantity",
+          "l_extendedprice",
+          "l_discount",
+          "l_tax"
+        ]
+      },
+      "estimated_cost": 119153.72,
+      "decision": "proposed",
+      "note": "query_id=Q14",
+      "timestamp": 1786336331.1279902
+    },
+    {
+      "step": 38,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_discount",
+          "l_quantity",
+          "l_extendedprice"
+        ]
+      },
+      "estimated_cost": 36393.12,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1786336348.6148386
+    },
+    {
+      "step": 39,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_discount",
+          "l_quantity",
+          "l_extendedprice"
+        ]
+      },
+      "estimated_cost": 118608.64,
+      "decision": "proposed",
+      "note": "query_id=Q14",
+      "timestamp": 1786336357.9030888
+    },
+    {
+      "step": 40,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_discount",
+          "l_quantity",
+          "l_extendedprice"
+        ]
+      },
+      "estimated_cost": 195842.66,
+      "decision": "proposed",
+      "note": "query_id=Q7",
+      "timestamp": 1786336374.8608568
+    },
+    {
+      "step": 41,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_orderkey",
+          "l_suppkey",
+          "l_receiptdate",
+          "l_commitdate"
+        ]
+      },
+      "estimated_cost": 58377.95,
+      "decision": "proposed",
+      "note": "query_id=Q4",
+      "timestamp": 1786336381.627319
+    },
+    {
+      "step": 42,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_orderkey",
+          "l_suppkey",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": 170008.96,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1786336399.2383232
+    },
+    {
+      "step": 43,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_orderkey",
+          "l_suppkey",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": 117445.95,
+      "decision": "proposed",
+      "note": "query_id=Q14",
+      "timestamp": 1786336406.9774773
+    },
+    {
+      "step": 44,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_orderkey",
+          "l_suppkey",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": Infinity,
+      "decision": "proposed",
+      "note": "query_id=Q15",
+      "timestamp": 1786336418.7832904
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_discount",
+          "l_quantity",
+          "l_extendedprice"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747375
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_orderkey",
+          "l_shipdate",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747394
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_orderkey",
+          "l_commitdate",
+          "l_receiptdate"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747401
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_receiptdate",
+          "l_shipmode",
+          "l_orderkey",
+          "l_commitdate",
+          "l_shipdate"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747404
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_orderkey",
+          "l_returnflag",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747408
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_suppkey",
+          "l_orderkey",
+          "l_receiptdate",
+          "l_commitdate"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747413
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_orderkey",
+          "l_suppkey",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747416
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_partkey",
+          "l_quantity"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747418
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_partkey",
+          "l_suppkey",
+          "l_shipdate",
+          "l_quantity"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.374742
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_orderkey",
+          "l_quantity"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747427
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_orderdate",
+          "o_custkey",
+          "o_orderkey",
+          "o_shippriority"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.374743
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_orderdate",
+          "o_orderpriority",
+          "o_orderkey"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747432
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_custkey",
+          "o_orderkey"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747435
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_orderstatus",
+          "o_orderkey"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747442
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "customer",
+        "columns": [
+          "c_mktsegment",
+          "c_custkey"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747444
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_size",
+          "p_type",
+          "p_partkey",
+          "p_mfgr"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747447
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_type",
+          "p_partkey"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.374745
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_brand",
+          "p_type",
+          "p_size",
+          "p_partkey"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747451
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_partkey",
+          "p_brand",
+          "p_container"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747458
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_name",
+          "p_partkey"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.374746
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "partsupp",
+        "columns": [
+          "ps_partkey",
+          "ps_suppkey",
+          "ps_supplycost"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747463
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "partsupp",
+        "columns": [
+          "ps_suppkey",
+          "ps_partkey",
+          "ps_supplycost",
+          "ps_availqty"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.374747
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "supplier",
+        "columns": [
+          "s_nationkey",
+          "s_suppkey"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786336464.3747473
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_orderkey",
+          "l_suppkey",
+          "l_receiptdate",
+          "l_commitdate"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786336464.3761027
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_partkey",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786336464.3761072
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_returnflag",
+          "l_linestatus",
+          "l_quantity",
+          "l_extendedprice",
+          "l_discount",
+          "l_tax"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786336464.376108
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "lineitem",
+        "columns": [
+          "l_shipdate",
+          "l_suppkey",
+          "l_extendedprice",
+          "l_discount"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786336464.3761091
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_custkey"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786336464.37611
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_custkey",
+          "o_orderkey",
+          "o_orderdate",
+          "o_totalprice"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786336464.3761113
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "orders",
+        "columns": [
+          "o_orderdate",
+          "o_custkey",
+          "o_orderkey"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786336464.376112
+    },
+    {
+      "step": 45,
+      "candidate_index": {
+        "table": "part",
+        "columns": [
+          "p_partkey",
+          "p_type",
+          "p_mfgr"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786336464.376113
+    }
+  ]
+}
