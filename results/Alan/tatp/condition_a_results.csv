@@ -1,0 +1,13 @@
+query_id,recommended_indexes,llm_reasoning_text,execution_time_ms_after,improvement_vs_baseline
+Q1,,"s_id is the primary key, so no additional index is needed.",0.009,-50.0
+Q2,CREATE INDEX idx_subscriber_sub_nbr ON subscriber(sub_nbr);,Index on sub_nbr enables fast equality lookup instead of full table scan.,0.012,99.7
+Q3,,"Query uses the composite primary key (s_id, ai_type) directly; no extra index needed.",0.007,0.0
+Q4,,"Query uses the composite primary key (s_id, sf_type) directly; no extra index needed.",0.009,18.18
+Q5,"CREATE INDEX idx_call_forwarding_sid_sftype_times ON call_forwarding(s_id, sf_type, start_time, end_time, numberx);",Covering index on call_forwarding allows efficient join and range filter on start_time/end_time.,0.016,-14.29
+Q6,"CREATE INDEX idx_special_facility_is_active_sf_type ON special_facility(is_active, sf_type);","Composite index on (is_active, sf_type) enables fast index-only scan for this aggregate.",0.692,97.79
+Q7,CREATE INDEX idx_subscriber_vlr_location ON subscriber(vlr_location);,Index on vlr_location supports efficient range scan for the BETWEEN predicate.,1.349,74.12
+Q8,,"Composite index on bit_1, bit_2, s_id covers all filter and return columns efficiently.",0.013,13.33
+Q9,CREATE INDEX idx_call_forwarding_start_time ON call_forwarding(start_time);,Index on start_time allows fast equality filter and grouping without full table scan.,8.731,72.5
+Q10,"CREATE INDEX idx_special_facility_sid_active ON special_facility(s_id, is_active, sf_type);","Indexes support filtering on bit_1 and is_active, reducing rows before the join and grouping.",44.838,3.12
+Q11,"CREATE INDEX idx_subscriber_msc_location ON subscriber(msc_location);; CREATE INDEX idx_special_facility_sid_active ON special_facility(s_id, is_active, sf_type);; CREATE INDEX idx_call_forwarding_sid_sftype_times ON call_forwarding(s_id, sf_type, start_time, end_time, numberx);","Indexes on msc_location, special_facility active rows, and call_forwarding join keys reduce multi-table join cost.",37.782,14.37
+Q12,"CREATE INDEX idx_subscriber_byte2_1 ON subscriber(byte2_1, s_id);",Index on byte2_1 enables efficient filtering of subscriber rows before joining with access_info.,46.804,0.66
