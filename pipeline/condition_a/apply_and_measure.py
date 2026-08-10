@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import csv
+import os
 import re
 
 import psycopg2
@@ -43,15 +44,41 @@ def apply_indexes(conn, index_statements):
                 print(f"  FAILED to apply: {stmt}\n    {e}")
 
 
+def split_statements(query_text):
+    return [statement.strip() for statement in query_text.split(";") if statement.strip()]
+
+
+def is_explainable_statement(statement):
+    return bool(re.match(r"^(select|with|values)\b", statement, re.I))
+
+
 def run_workload(conn, workload_rows):
     results = {}
     with conn.cursor() as cur:
+        cur.execute("SET statement_timeout = 120000")
+
         for row in workload_rows:
             query_id = row["query_id"]
             clean_sql = row["query_text"].strip().rstrip(";")
+            statements = split_statements(clean_sql)
+            explainable_sql = clean_sql
+            post_statements = []
+
+            if len(statements) > 1:
+                explainable_index = next(
+                    (index for index, statement in enumerate(statements) if is_explainable_statement(statement)),
+                    -1,
+                )
+
+                if explainable_index >= 0:
+                    for statement in statements[:explainable_index]:
+                        cur.execute(statement)
+
+                    explainable_sql = statements[explainable_index]
+                    post_statements = statements[explainable_index + 1:]
 
             try:
-                cur.execute(f"EXPLAIN (ANALYZE, FORMAT TEXT) {clean_sql}")
+                cur.execute(f"EXPLAIN (ANALYZE, FORMAT TEXT) {explainable_sql}")
                 plan_lines = [r[0] for r in cur.fetchall()]
 
                 exec_time_ms = None
@@ -67,8 +94,19 @@ def run_workload(conn, workload_rows):
 
             except Exception as e:
                 conn.rollback()
-                print(f"  {query_id}: ERROR - {e}")
-                results[query_id] = None
+                if getattr(e, "pgcode", None) == "57014" or "statement timeout" in str(e).lower():
+                    print(f"  {query_id}: TIMEOUT - 120000 ms")
+                    results[query_id] = 120000
+                else:
+                    print(f"  {query_id}: ERROR - {e}")
+                    results[query_id] = None
+
+            finally:
+                for statement in post_statements:
+                    try:
+                        cur.execute(statement)
+                    except Exception:
+                        conn.rollback()
 
     return results
 
@@ -79,6 +117,8 @@ def main():
     parser.add_argument("--baseline", required=True)
     parser.add_argument("--results", required=True)
     parser.add_argument("--indexes-file", required=True)
+    parser.add_argument("--schema-name", default=os.getenv("SCHEMA_NAME", "tpch"))
+    parser.add_argument("--database", default=os.getenv("DB_DATABASE", os.getenv("PGDATABASE", "postgres")))
     parser.add_argument("--host", default="localhost")
     parser.add_argument("--port", default="5432")
     parser.add_argument("--db", default="postgres")
@@ -103,10 +143,13 @@ def main():
         results_rows = list(csv.DictReader(f))
 
     conn = psycopg2.connect(
-        host=args.host, port=args.port, dbname=args.db,
+        host=args.host, port=args.port, dbname=args.database,
         user=args.user, password=args.password,
     )
     conn.autocommit = True
+
+    with conn.cursor() as cur:
+        cur.execute(f'SET search_path TO "{args.schema_name}", public')
 
     print(f"Applying {len(index_statements)} recommended index(es)...")
     apply_indexes(conn, index_statements)

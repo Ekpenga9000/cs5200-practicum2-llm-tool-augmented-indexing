@@ -28,6 +28,10 @@ export interface DatabaseConfig {
   database: string;
 }
 
+export interface RuntimeConfig {
+  statementTimeoutMs: number;
+}
+
 export interface LoadedDatabaseConfig extends PoolConfig {
   host: string;
   port: number;
