@@ -37,7 +37,7 @@ def main():
 
     pw = os.environ.get("PGPASSWORD") or getpass.getpass("Postgres password for user 'postgres': ")
     conn = psycopg2.connect(
-        dbname=schema_workload["schema_name"],
+        dbname=os.getenv("DB_DATABASE", os.getenv("PGDATABASE", "postgres")),
         user=os.getenv("PGUSER", "postgres"),
         password=pw,
         host=os.getenv("PGHOST", "localhost"),

@@ -154,6 +154,10 @@ def main():
     print(f"Applying {len(index_statements)} recommended index(es)...")
     apply_indexes(conn, index_statements)
 
+    with conn.cursor() as cur:
+        print(f"Refreshing planner statistics with ANALYZE on schema {args.schema_name}...")
+        cur.execute("ANALYZE")
+
     print(f"\nRe-running {len(workload_rows)} queries with indexes applied...")
     after_times = run_workload(conn, workload_rows)
     conn.close()
