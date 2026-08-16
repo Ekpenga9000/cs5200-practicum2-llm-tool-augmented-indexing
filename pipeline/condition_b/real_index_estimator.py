@@ -25,10 +25,15 @@ class RealIndexCostEstimator:
         self.conn.autocommit = True
         self.schema_name = schema_name
         self._set_search_path()
+        self._set_statement_timeout()
 
     def _set_search_path(self) -> None:
         with self.conn.cursor() as cur:
             cur.execute(f"SET search_path TO {quote_identifier(self.schema_name)}, public")
+
+    def _set_statement_timeout(self) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute("SET statement_timeout = 120000")
 
     def estimate_cost(self, candidate_index: dict, query_text: str) -> dict:
         """
