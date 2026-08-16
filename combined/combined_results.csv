@@ -1,0 +1,9 @@
+owner,schema,folder_present,schema_sql,workload_file,baseline_results,condition_a_results,condition_b_results,analysis_summary,baseline_queries,cond_a_improved,cond_a_regressed,cond_a_equal,cond_b_improved,cond_b_regressed,cond_b_equal,cond_b_recommended_indexes,cond_b_proposed_candidates,cond_b_numeric_cost_estimates,cond_b_accepted,cond_b_rejected,notes
+Louis,TPC-H,yes,yes,yes,yes,yes,yes,yes,22,11,11,0,13,9,0,23,44,42,23,8,Complete deliverable set
+Louis,TPC-DS,yes,yes,yes,yes,yes,yes,yes,99,0,99,0,2,93,0,13,32,32,13,24,Condition B measurement completed; 4 rows have missing after-time values (Q14 Q23 Q24 Q39)
+Sylfhen,JOB,yes,yes,yes,yes,yes,no,yes,113,84,29,0,,,,,,,,,Condition B output pending
+Sylfhen,STATS,yes,yes,yes,yes,yes,no,yes,146,94,52,0,,,,5,,,,,Condition B results pending; baseline and Condition A recovered from branch history
+Alan,TPC-C,yes,yes,yes,yes,yes,yes,yes,12,6,3,3,6,3,3,3,32,32,3,6,Canonical schema/workload filenames added
+Alan,TATP,yes,yes,yes,yes,yes,yes,yes,12,9,2,1,10,2,0,8,42,42,8,11,Canonical schema/workload filenames added
+Ikenna,SSB,yes,yes,yes,yes,yes,yes,yes,13,11,2,0,5,8,0,14,53,53,14,14,Complete deliverable set
+Ikenna,DSB,yes,yes,yes,yes,yes,yes,yes,53,49,4,0,42,11,0,21,34,34,21,13,Complete deliverable set

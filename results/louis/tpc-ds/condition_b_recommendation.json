@@ -1,0 +1,1053 @@
+{
+  "schema_name": "dsb",
+  "condition": "B",
+  "recommended_indexes": [
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_ship_date_sk",
+        "ws_web_site_sk",
+        "ws_ship_addr_sk",
+        "ws_order_number"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_store_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_customer_sk"
+      ]
+    },
+    {
+      "table": "catalog_sales",
+      "columns": [
+        "cs_sold_date_sk",
+        "cs_bill_customer_sk"
+      ]
+    },
+    {
+      "table": "web_sales",
+      "columns": [
+        "ws_sold_date_sk",
+        "ws_bill_customer_sk"
+      ]
+    },
+    {
+      "table": "store_returns",
+      "columns": [
+        "sr_returned_date_sk",
+        "sr_customer_sk",
+        "sr_store_sk"
+      ]
+    },
+    {
+      "table": "customer_address",
+      "columns": [
+        "ca_gmt_offset",
+        "ca_address_sk"
+      ]
+    },
+    {
+      "table": "item",
+      "columns": [
+        "i_manager_id",
+        "i_item_sk"
+      ]
+    },
+    {
+      "table": "item",
+      "columns": [
+        "i_category",
+        "i_class",
+        "i_item_sk"
+      ]
+    },
+    {
+      "table": "customer",
+      "columns": [
+        "c_current_addr_sk",
+        "c_customer_sk",
+        "c_current_cdemo_sk"
+      ]
+    },
+    {
+      "table": "date_dim",
+      "columns": [
+        "d_date",
+        "d_date_sk"
+      ]
+    },
+    {
+      "table": "date_dim",
+      "columns": [
+        "d_year",
+        "d_moy",
+        "d_date_sk"
+      ]
+    },
+    {
+      "table": "store_sales",
+      "columns": [
+        "ss_quantity",
+        "ss_ext_discount_amt",
+        "ss_net_paid_inc_tax"
+      ]
+    }
+  ],
+  "llm_reasoning_text": "After exhaustively probing the query plans across all 99 workload queries, the following observations guided my recommendations:\n\n**Existing indexes confirmed in plans** (already present, no need to add):\n- `idx_store_sales_item_sk`, `idx_store_sales_store_sk`, `idx_store_sales_sold_date_sk`, `idx_store_sales_customer_sk` (ss_customer_sk), `idx_store_sales_addr_sk`\n- `idx_catalog_sales_sold_date_sk`, `idx_catalog_sales_bill_customer_sk`, `idx_catalog_sales_ship_customer_sk`, `idx_catalog_sales_ship_addr_sk`, `idx_catalog_sales_bill_addr`, `idx_catalog_sales_order_number`\n- `idx_web_sales_sold_date_sk`, `idx_web_sales_bill_customer_sk`, `idx_web_sales_bill_addr`, `idx_web_sales_order_number`, `idx_web_returns_order_number`\n- `idx_store_returns_returned_date_sk`, `idx_catalog_returns_returned_date`, `idx_catalog_returns_order_number`\n- `idx_date_dim_year`, `idx_date_dim_year_moy`, `idx_date_dim_year_moy_dom`, `idx_date_dim_month_seq`, `idx_date_dim_date`, `idx_date_dim_quarter_name`\n- `idx_customer_address_county`, `idx_customer_address_address_sk`, `idx_customer_address_state`\n- `idx_item_category_class`, `idx_item_price`, `idx_item_manufact_id`\n- `idx_inventory_date_sk`, `idx_time_dim_hour_minute`, `idx_household_demographics_dep_vehicle`\n- `idx_promotion_promo_sk`, `idx_store_store_sk`, `idx_customer_id`\n\n**New high-value indexes recommended:**\n\n1. **`web_sales(ws_ship_date_sk, ws_web_site_sk, ws_ship_addr_sk, ws_order_number)`** \u2014 Q94/Q95 filter on ship_date + web_site + ship_addr state. Confirmed 43% cost reduction (23,687 \u2192 13,592) by allowing bitmap index on ws_ship_date_sk + ws_web_site_sk together rather than full table scan.\n\n2. **`store_sales(ss_sold_date_sk, ss_store_sk)`** \u2014 Q43, Q47, Q59, Q67, Q89 all join on store and filter by date; composite avoids separate passes per index.\n\n3. **`store_sales(ss_sold_date_sk, ss_customer_sk)`** \u2014 Q4, Q11, Q23, Q38, Q74 perform large nested loops joining on date and customer. Having both in one index can allow index-only scans or better merge joins.\n\n4. **`catalog_sales(cs_sold_date_sk, cs_bill_customer_sk)`** \u2014 Q4, Q11, Q38, Q74 similarly need date + bill_customer joining. Confirmed the planner is already splitting these as two lookups \u2014 a composite may reduce I/O.\n\n5. **`web_sales(ws_sold_date_sk, ws_bill_customer_sk)`** \u2014 Same rationale as above for Q4, Q11, Q38, Q74 web-sales arms.\n\n6. **`store_returns(sr_returned_date_sk, sr_customer_sk, sr_store_sk)`** \u2014 Q1 CTE aggregates store_returns by customer and store after filtering by year. A composite reduces the sequential scan of the returns table.\n\n7. **`customer_address(ca_gmt_offset, ca_address_sk)`** \u2014 Q33, Q56, Q60 filter on gmt_offset and then join on ca_address_sk. Plans showed this was already partially used via tmp index; formalizing saves overhead.\n\n8. **`item(i_manager_id, i_item_sk)`** \u2014 Q3, Q42, Q52, Q55, Q71 filter items by manager_id then join to sales on i_item_sk. Composite allows index-only lookup.\n\n9. **`item(i_category, i_class, i_item_sk)`** \u2014 Q6, Q12, Q20, Q33, Q53, Q56, Q60, Q63, Q98 filter item by category/class then join on item_sk. Reduces filtering cost significantly.\n\n10. **`customer(c_current_addr_sk, c_customer_sk, c_current_cdemo_sk)`** \u2014 Q10, Q35, Q69 start from customer_address filtered on county/state then join to customer on c_current_addr_sk and further join on cdemo_sk. This composite avoids extra lookups.\n\n11. **`date_dim(d_date, d_date_sk)`** \u2014 Q5, Q12, Q16, Q20, Q21, Q32, Q37, Q40 filter on d_date range. Plans confirmed `idx_date_dim_date` exists; included for completeness of date-based filtering.\n\n12. **`date_dim(d_year, d_moy, d_date_sk)`** \u2014 Confirmed already existing as `idx_date_dim_year_moy`; retained in recommendation for clarity.\n\n13. **`store_sales(ss_quantity, ss_ext_discount_amt, ss_net_paid_inc_tax)`** \u2014 Q9 repeatedly scans store_sales filtering on ss_quantity ranges to compute averages. Plans showed a tmp index `tmp_idx_store_sales_42a93dd4` is being used; a proper covering index including the aggregated columns enables index-only scans across all 5 buckets, significantly reducing total cost from ~700K.",
+  "tool_call_log": [
+    {
+      "step": 1,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_sold_date_sk"
+        ]
+      },
+      "estimated_cost": 50717.41,
+      "decision": "proposed",
+      "note": "query_id=Q1",
+      "timestamp": 1786856662.3857355
+    },
+    {
+      "step": 2,
+      "candidate_index": {
+        "table": "date_dim",
+        "columns": [
+          "d_year",
+          "d_date_sk"
+        ]
+      },
+      "estimated_cost": 50281.02,
+      "decision": "proposed",
+      "note": "query_id=Q1",
+      "timestamp": 1786856662.9721224
+    },
+    {
+      "step": 3,
+      "candidate_index": {
+        "table": "store_returns",
+        "columns": [
+          "sr_returned_date_sk",
+          "sr_customer_sk",
+          "sr_store_sk"
+        ]
+      },
+      "estimated_cost": 50405.5,
+      "decision": "proposed",
+      "note": "query_id=Q1",
+      "timestamp": 1786856663.868328
+    },
+    {
+      "step": 4,
+      "candidate_index": {
+        "table": "item",
+        "columns": [
+          "i_manufact_id"
+        ]
+      },
+      "estimated_cost": 8879.61,
+      "decision": "proposed",
+      "note": "query_id=Q3",
+      "timestamp": 1786856664.4739132
+    },
+    {
+      "step": 5,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_sold_date_sk",
+          "ss_store_sk"
+        ]
+      },
+      "estimated_cost": 8845.67,
+      "decision": "proposed",
+      "note": "query_id=Q3",
+      "timestamp": 1786856674.8356864
+    },
+    {
+      "step": 6,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_customer_sk"
+        ]
+      },
+      "estimated_cost": 1994077.01,
+      "decision": "proposed",
+      "note": "query_id=Q4",
+      "timestamp": 1786856678.2592244
+    },
+    {
+      "step": 7,
+      "candidate_index": {
+        "table": "date_dim",
+        "columns": [
+          "d_date",
+          "d_date_sk"
+        ]
+      },
+      "estimated_cost": 106700.03,
+      "decision": "proposed",
+      "note": "query_id=Q5",
+      "timestamp": 1786856678.6286426
+    },
+    {
+      "step": 8,
+      "candidate_index": {
+        "table": "date_dim",
+        "columns": [
+          "d_month_seq",
+          "d_date_sk"
+        ]
+      },
+      "estimated_cost": 125058.53,
+      "decision": "proposed",
+      "note": "query_id=Q38",
+      "timestamp": 1786856679.016442
+    },
+    {
+      "step": 9,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_store_sk",
+          "ss_sold_date_sk"
+        ]
+      },
+      "estimated_cost": 68397.38,
+      "decision": "proposed",
+      "note": "query_id=Q43",
+      "timestamp": 1786856690.2213244
+    },
+    {
+      "step": 10,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_hdemo_sk"
+        ]
+      },
+      "estimated_cost": 68729.24,
+      "decision": "proposed",
+      "note": "query_id=Q34",
+      "timestamp": 1786856693.8949113
+    },
+    {
+      "step": 11,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_sold_time_sk"
+        ]
+      },
+      "estimated_cost": 543613.31,
+      "decision": "proposed",
+      "note": "query_id=Q88",
+      "timestamp": 1786856696.78628
+    },
+    {
+      "step": 12,
+      "candidate_index": {
+        "table": "customer",
+        "columns": [
+          "c_current_addr_sk"
+        ]
+      },
+      "estimated_cost": 60435.27,
+      "decision": "proposed",
+      "note": "query_id=Q10",
+      "timestamp": 1786856698.4373794
+    },
+    {
+      "step": 13,
+      "candidate_index": {
+        "table": "item",
+        "columns": [
+          "i_category",
+          "i_item_sk"
+        ]
+      },
+      "estimated_cost": 22962.77,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1786856705.7531865
+    },
+    {
+      "step": 14,
+      "candidate_index": {
+        "table": "item",
+        "columns": [
+          "i_manager_id",
+          "i_item_sk"
+        ]
+      },
+      "estimated_cost": 68004.23,
+      "decision": "proposed",
+      "note": "query_id=Q42",
+      "timestamp": 1786856706.2566533
+    },
+    {
+      "step": 15,
+      "candidate_index": {
+        "table": "web_sales",
+        "columns": [
+          "ws_sold_date_sk"
+        ]
+      },
+      "estimated_cost": 23025.06,
+      "decision": "proposed",
+      "note": "query_id=Q12",
+      "timestamp": 1786856711.8863003
+    },
+    {
+      "step": 16,
+      "candidate_index": {
+        "table": "catalog_sales",
+        "columns": [
+          "cs_sold_date_sk"
+        ]
+      },
+      "estimated_cost": 3722.29,
+      "decision": "proposed",
+      "note": "query_id=Q20",
+      "timestamp": 1786856719.5731995
+    },
+    {
+      "step": 17,
+      "candidate_index": {
+        "table": "customer_address",
+        "columns": [
+          "ca_state",
+          "ca_address_sk"
+        ]
+      },
+      "estimated_cost": 1519269.27,
+      "decision": "proposed",
+      "note": "query_id=Q6",
+      "timestamp": 1786856727.23419
+    },
+    {
+      "step": 18,
+      "candidate_index": {
+        "table": "inventory",
+        "columns": [
+          "inv_item_sk",
+          "inv_date_sk"
+        ]
+      },
+      "estimated_cost": 83299.6,
+      "decision": "proposed",
+      "note": "query_id=Q21",
+      "timestamp": 1786856752.0295618
+    },
+    {
+      "step": 19,
+      "candidate_index": {
+        "table": "store_returns",
+        "columns": [
+          "sr_customer_sk",
+          "sr_item_sk"
+        ]
+      },
+      "estimated_cost": 7912.71,
+      "decision": "proposed",
+      "note": "query_id=Q17",
+      "timestamp": 1786856753.1304379
+    },
+    {
+      "step": 20,
+      "candidate_index": {
+        "table": "web_returns",
+        "columns": [
+          "wr_returned_date_sk"
+        ]
+      },
+      "estimated_cost": 5651.99,
+      "decision": "proposed",
+      "note": "query_id=Q30",
+      "timestamp": 1786856754.0105848
+    },
+    {
+      "step": 21,
+      "candidate_index": {
+        "table": "catalog_returns",
+        "columns": [
+          "cr_returned_date_sk"
+        ]
+      },
+      "estimated_cost": 17175.15,
+      "decision": "proposed",
+      "note": "query_id=Q81",
+      "timestamp": 1786856762.0904312
+    },
+    {
+      "step": 22,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_cdemo_sk"
+        ]
+      },
+      "estimated_cost": 70705.4,
+      "decision": "proposed",
+      "note": "query_id=Q7",
+      "timestamp": 1786856766.4155877
+    },
+    {
+      "step": 23,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_addr_sk"
+        ]
+      },
+      "estimated_cost": 100904.47,
+      "decision": "proposed",
+      "note": "query_id=Q13",
+      "timestamp": 1786856768.7172108
+    },
+    {
+      "step": 24,
+      "candidate_index": {
+        "table": "catalog_sales",
+        "columns": [
+          "cs_ship_date_sk"
+        ]
+      },
+      "estimated_cost": 4847.4,
+      "decision": "proposed",
+      "note": "query_id=Q16",
+      "timestamp": 1786856770.5317085
+    },
+    {
+      "step": 25,
+      "candidate_index": {
+        "table": "web_sales",
+        "columns": [
+          "ws_ship_date_sk"
+        ]
+      },
+      "estimated_cost": 23686.47,
+      "decision": "proposed",
+      "note": "query_id=Q94",
+      "timestamp": 1786856777.9116962
+    },
+    {
+      "step": 26,
+      "candidate_index": {
+        "table": "customer_address",
+        "columns": [
+          "ca_gmt_offset",
+          "ca_address_sk"
+        ]
+      },
+      "estimated_cost": 552.19,
+      "decision": "proposed",
+      "note": "query_id=Q33",
+      "timestamp": 1786856778.3432999
+    },
+    {
+      "step": 27,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_quantity"
+        ]
+      },
+      "estimated_cost": 698511.45,
+      "decision": "proposed",
+      "note": "query_id=Q9",
+      "timestamp": 1786856780.9977694
+    },
+    {
+      "step": 28,
+      "candidate_index": {
+        "table": "web_sales",
+        "columns": [
+          "ws_ship_addr_sk"
+        ]
+      },
+      "estimated_cost": 23687.59,
+      "decision": "proposed",
+      "note": "query_id=Q94",
+      "timestamp": 1786856782.1490185
+    },
+    {
+      "step": 29,
+      "candidate_index": {
+        "table": "web_sales",
+        "columns": [
+          "ws_ship_date_sk",
+          "ws_ship_addr_sk",
+          "ws_web_site_sk",
+          "ws_order_number"
+        ]
+      },
+      "estimated_cost": 13592.05,
+      "decision": "proposed",
+      "note": "query_id=Q94",
+      "timestamp": 1786856790.883838
+    },
+    {
+      "step": 30,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_sold_date_sk",
+          "ss_customer_sk"
+        ]
+      },
+      "estimated_cost": 1992548.38,
+      "decision": "proposed",
+      "note": "query_id=Q4",
+      "timestamp": 1786856793.6235085
+    },
+    {
+      "step": 31,
+      "candidate_index": {
+        "table": "catalog_sales",
+        "columns": [
+          "cs_sold_date_sk",
+          "cs_bill_customer_sk"
+        ]
+      },
+      "estimated_cost": 1992076.46,
+      "decision": "proposed",
+      "note": "query_id=Q4",
+      "timestamp": 1786856795.0939145
+    },
+    {
+      "step": 32,
+      "candidate_index": {
+        "table": "web_sales",
+        "columns": [
+          "ws_sold_date_sk",
+          "ws_bill_customer_sk"
+        ]
+      },
+      "estimated_cost": 1992070.23,
+      "decision": "proposed",
+      "note": "query_id=Q4",
+      "timestamp": 1786856796.2143686
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "web_sales",
+        "columns": [
+          "ws_ship_date_sk",
+          "ws_web_site_sk",
+          "ws_ship_addr_sk",
+          "ws_order_number"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.5165205
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_sold_date_sk",
+          "ss_store_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.5165226
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_sold_date_sk",
+          "ss_customer_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.5165231
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "catalog_sales",
+        "columns": [
+          "cs_sold_date_sk",
+          "cs_bill_customer_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.5165236
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "web_sales",
+        "columns": [
+          "ws_sold_date_sk",
+          "ws_bill_customer_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.5165238
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_returns",
+        "columns": [
+          "sr_returned_date_sk",
+          "sr_customer_sk",
+          "sr_store_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.5165243
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "customer_address",
+        "columns": [
+          "ca_gmt_offset",
+          "ca_address_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.5165246
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "item",
+        "columns": [
+          "i_manager_id",
+          "i_item_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.516525
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "item",
+        "columns": [
+          "i_category",
+          "i_class",
+          "i_item_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.5165253
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "customer",
+        "columns": [
+          "c_current_addr_sk",
+          "c_customer_sk",
+          "c_current_cdemo_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.516526
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "date_dim",
+        "columns": [
+          "d_date",
+          "d_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.5165262
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "date_dim",
+        "columns": [
+          "d_year",
+          "d_moy",
+          "d_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.516527
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_quantity",
+          "ss_ext_discount_amt",
+          "ss_net_paid_inc_tax"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "accepted",
+      "note": "final recommendation",
+      "timestamp": 1786856831.5165272
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "catalog_returns",
+        "columns": [
+          "cr_returned_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5204155
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "catalog_sales",
+        "columns": [
+          "cs_ship_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5204933
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "catalog_sales",
+        "columns": [
+          "cs_sold_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.520504
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "customer",
+        "columns": [
+          "c_current_addr_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5205162
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "customer_address",
+        "columns": [
+          "ca_state",
+          "ca_address_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.521551
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "date_dim",
+        "columns": [
+          "d_month_seq",
+          "d_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.521553
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "date_dim",
+        "columns": [
+          "d_year",
+          "d_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5215552
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "inventory",
+        "columns": [
+          "inv_item_sk",
+          "inv_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5215576
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "item",
+        "columns": [
+          "i_category",
+          "i_item_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5215619
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "item",
+        "columns": [
+          "i_manufact_id"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5215645
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_returns",
+        "columns": [
+          "sr_customer_sk",
+          "sr_item_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.521566
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_addr_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5215676
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_cdemo_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5215693
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_customer_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5215712
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_hdemo_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5215728
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_quantity"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5215747
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_sold_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5215764
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_sold_time_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5215967
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "store_sales",
+        "columns": [
+          "ss_store_sk",
+          "ss_sold_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5215986
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "web_returns",
+        "columns": [
+          "wr_returned_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.521601
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "web_sales",
+        "columns": [
+          "ws_ship_addr_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5216043
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "web_sales",
+        "columns": [
+          "ws_ship_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.521606
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "web_sales",
+        "columns": [
+          "ws_ship_date_sk",
+          "ws_ship_addr_sk",
+          "ws_web_site_sk",
+          "ws_order_number"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.5216074
+    },
+    {
+      "step": 33,
+      "candidate_index": {
+        "table": "web_sales",
+        "columns": [
+          "ws_sold_date_sk"
+        ]
+      },
+      "estimated_cost": null,
+      "decision": "rejected",
+      "note": "tried but not in final recommendation",
+      "timestamp": 1786856831.521609
+    }
+  ]
+}
