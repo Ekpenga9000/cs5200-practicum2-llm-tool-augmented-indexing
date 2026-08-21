@@ -1,0 +1,13 @@
+query_id,query_text,complexity_tier
+Q1,SELECT w_tax FROM warehouse WHERE w_id = 1;,Simple
+Q2,"SELECT d_next_o_id, d_tax FROM district WHERE d_w_id = 1 AND d_id = 3;",Simple
+Q3,"SELECT c_discount, c_last, c_credit FROM customer WHERE c_w_id = 1 AND c_d_id = 3 AND c_id = 42;",Simple
+Q4,"SELECT i_price, i_name, i_data FROM item WHERE i_id = 501;",Simple
+Q5,"SELECT s_quantity, s_data, s_dist_03 FROM stock WHERE s_i_id = 501 AND s_w_id = 1;",Simple
+Q6,"SELECT c_id, c_balance FROM customer WHERE c_w_id = 1 AND c_d_id = 3 AND c_last = 'BARBARANTI' ORDER BY c_first;",Medium
+Q7,"SELECT o_id, o_carrier_id, o_entry_d FROM orders WHERE o_w_id = 1 AND o_d_id = 3 AND o_c_id = 42 ORDER BY o_id DESC LIMIT 1;",Medium
+Q8,"SELECT ol_i_id, ol_supply_w_id, ol_quantity, ol_amount, ol_delivery_d FROM order_line WHERE ol_w_id = 1 AND ol_d_id = 3 AND ol_o_id = 1000;",Simple
+Q9,SELECT no_o_id FROM new_order WHERE no_w_id = 1 AND no_d_id = 3 ORDER BY no_o_id ASC LIMIT 1;,Medium
+Q10,SELECT SUM(ol_amount) FROM order_line WHERE ol_w_id = 1 AND ol_d_id = 3 AND ol_o_id = 1000;,Medium
+Q11,"SELECT COUNT(DISTINCT s_i_id) FROM order_line, stock WHERE ol_w_id = 1 AND ol_d_id = 3 AND ol_o_id < 1000 AND ol_o_id >= 980 AND s_w_id = 1 AND s_i_id = ol_i_id AND s_quantity < 15;",Complex
+Q12,"SELECT c_last, SUM(ol_amount) AS total_spent FROM customer JOIN orders ON c_w_id = o_w_id AND c_d_id = o_d_id AND c_id = o_c_id JOIN order_line ON o_w_id = ol_w_id AND o_d_id = ol_d_id AND o_id = ol_o_id WHERE c_w_id = 1 GROUP BY c_last ORDER BY total_spent DESC LIMIT 10;",Complex

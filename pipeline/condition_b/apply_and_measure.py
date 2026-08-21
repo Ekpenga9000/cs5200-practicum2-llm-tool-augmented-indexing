@@ -71,11 +71,18 @@ def run(schema_workload_path, recommendation_path, baseline_csv_path, out_csv_pa
 
     pw = os.environ.get("PGPASSWORD") or getpass.getpass("Postgres password for user 'postgres': ")
     conn = psycopg2.connect(
-        dbname=schema_workload["schema_name"], user="postgres",
-        password=pw, host="localhost", port=5432,
+        dbname=os.getenv("DB_DATABASE", os.getenv("PGDATABASE", "postgres")),
+        user=os.getenv("PGUSER", "postgres"),
+        password=pw,
+        host=os.getenv("PGHOST", "localhost"),
+        port=int(os.getenv("PGPORT", "5432")),
     )
     conn.autocommit = True
     cur = conn.cursor()
+
+    schema_name = schema_workload["schema_name"]
+    cur.execute(f'SET search_path TO "{schema_name}", public')
+    cur.execute("SET statement_timeout = 120000")
 
     apply_indexes(cur, recommendation["recommended_indexes"])
 
@@ -85,12 +92,21 @@ def run(schema_workload_path, recommendation_path, baseline_csv_path, out_csv_pa
         query_text = q["query_text"]
         print(f"Re-running {query_id} with new indexes...")
 
-        cur.execute(f"EXPLAIN (ANALYZE, FORMAT JSON) {query_text}")  # warm-up run
-        exec_time_after = measure_query(cur, query_text)
+        try:
+            cur.execute(f"EXPLAIN (ANALYZE, FORMAT JSON) {query_text}")  # warm-up run
+            exec_time_after = measure_query(cur, query_text)
+        except Exception as e:
+            conn.rollback()
+            if getattr(e, "pgcode", None) == "57014" or "statement timeout" in str(e).lower():
+                print(f"  {query_id}: TIMEOUT - 120000 ms")
+                exec_time_after = 120000.0
+            else:
+                print(f"  {query_id}: ERROR - {e}")
+                exec_time_after = None
 
         before = baseline_times.get(query_id)
         improvement_pct = None
-        if before and before > 0:
+        if exec_time_after is not None and before and before > 0:
             improvement_pct = round((before - exec_time_after) / before * 100, 2)
 
         rows.append({
@@ -99,6 +115,7 @@ def run(schema_workload_path, recommendation_path, baseline_csv_path, out_csv_pa
             "llm_reasoning_text": recommendation["llm_reasoning_text"],
             "execution_time_ms_after": exec_time_after,
             "improvement_vs_baseline": improvement_pct,
+            "tool_call_log": json.dumps(recommendation.get("tool_call_log", [])),
         })
 
     cur.close()
@@ -107,7 +124,7 @@ def run(schema_workload_path, recommendation_path, baseline_csv_path, out_csv_pa
     with open(out_csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=[
             "query_id", "recommended_indexes", "llm_reasoning_text",
-            "execution_time_ms_after", "improvement_vs_baseline",
+            "execution_time_ms_after", "improvement_vs_baseline", "tool_call_log",
         ])
         writer.writeheader()
         writer.writerows(rows)
@@ -123,7 +140,10 @@ def run(schema_workload_path, recommendation_path, baseline_csv_path, out_csv_pa
     print("\nBefore -> After (ms):")
     for r in rows:
         before = baseline_times.get(r["query_id"])
-        print(f"  {r['query_id']}: {before:.3f} -> {r['execution_time_ms_after']:.3f}  "
+        after = r["execution_time_ms_after"]
+        before_str = f"{before:.3f}" if isinstance(before, (int, float)) else "NA"
+        after_str = f"{after:.3f}" if isinstance(after, (int, float)) else "NA"
+        print(f"  {r['query_id']}: {before_str} -> {after_str}  "
               f"({r['improvement_vs_baseline']}% change)")
 
 
