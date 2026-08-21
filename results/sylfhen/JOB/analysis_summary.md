@@ -1,4 +1,4 @@
-[paste JOB content]
+
 # JOB Schema — Analysis Summary
 
 **Note on methodology:** This summary reflects a full redo of the baseline
