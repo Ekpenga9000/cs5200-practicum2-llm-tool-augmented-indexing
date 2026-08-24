@@ -1,0 +1,1170 @@
+[
+  {
+    "step": 1,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "movie_id",
+        "company_id",
+        "company_type_id"
+      ]
+    },
+    "estimated_cost": 19546.41,
+    "decision": "proposed",
+    "note": "query_id=1a",
+    "timestamp": 1785873551.106678
+  },
+  {
+    "step": 2,
+    "candidate_index": {
+      "table": "movie_keyword",
+      "columns": [
+        "movie_id",
+        "keyword_id"
+      ]
+    },
+    "estimated_cost": 1243.47,
+    "decision": "proposed",
+    "note": "query_id=2a",
+    "timestamp": 1785873563.0497339
+  },
+  {
+    "step": 3,
+    "candidate_index": {
+      "table": "cast_info",
+      "columns": [
+        "movie_id",
+        "person_id",
+        "role_id"
+      ]
+    },
+    "estimated_cost": 43780.37,
+    "decision": "proposed",
+    "note": "query_id=10a",
+    "timestamp": 1785873619.406173
+  },
+  {
+    "step": 4,
+    "candidate_index": {
+      "table": "movie_info",
+      "columns": [
+        "movie_id",
+        "info_type_id",
+        "info"
+      ]
+    },
+    "estimated_cost": Infinity,
+    "decision": "proposed",
+    "note": "query_id=3a",
+    "timestamp": 1785873623.099776
+  },
+  {
+    "step": 5,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "movie_id",
+        "info_type_id",
+        "info"
+      ]
+    },
+    "estimated_cost": 16614.07,
+    "decision": "proposed",
+    "note": "query_id=4a",
+    "timestamp": 1785873625.980798
+  },
+  {
+    "step": 6,
+    "candidate_index": {
+      "table": "title",
+      "columns": [
+        "kind_id",
+        "production_year"
+      ]
+    },
+    "estimated_cost": 10684.9,
+    "decision": "proposed",
+    "note": "query_id=12a",
+    "timestamp": 1785873631.859671
+  },
+  {
+    "step": 7,
+    "candidate_index": {
+      "table": "company_name",
+      "columns": [
+        "country_code"
+      ]
+    },
+    "estimated_cost": 43574.82,
+    "decision": "proposed",
+    "note": "query_id=10a",
+    "timestamp": 1785873632.5128388
+  },
+  {
+    "step": 8,
+    "candidate_index": {
+      "table": "keyword",
+      "columns": [
+        "keyword"
+      ]
+    },
+    "estimated_cost": 1242.97,
+    "decision": "proposed",
+    "note": "query_id=2a",
+    "timestamp": 1785873633.121544
+  },
+  {
+    "step": 9,
+    "candidate_index": {
+      "table": "name",
+      "columns": [
+        "gender",
+        "name"
+      ]
+    },
+    "estimated_cost": 1247.93,
+    "decision": "proposed",
+    "note": "query_id=6a",
+    "timestamp": 1785873655.879168
+  },
+  {
+    "step": 10,
+    "candidate_index": {
+      "table": "aka_name",
+      "columns": [
+        "person_id"
+      ]
+    },
+    "estimated_cost": 73814.33,
+    "decision": "proposed",
+    "note": "query_id=9a",
+    "timestamp": 1785873657.4960692
+  },
+  {
+    "step": 11,
+    "candidate_index": {
+      "table": "complete_cast",
+      "columns": [
+        "movie_id",
+        "subject_id",
+        "status_id"
+      ]
+    },
+    "estimated_cost": 8884.4,
+    "decision": "proposed",
+    "note": "query_id=20a",
+    "timestamp": 1785873657.650785
+  },
+  {
+    "step": 12,
+    "candidate_index": {
+      "table": "movie_link",
+      "columns": [
+        "movie_id",
+        "link_type_id"
+      ]
+    },
+    "estimated_cost": 1154.89,
+    "decision": "proposed",
+    "note": "query_id=11a",
+    "timestamp": 1785873657.722653
+  },
+  {
+    "step": 13,
+    "candidate_index": {
+      "table": "person_info",
+      "columns": [
+        "person_id",
+        "info_type_id"
+      ]
+    },
+    "estimated_cost": 145.38,
+    "decision": "proposed",
+    "note": "query_id=7a",
+    "timestamp": 1785873664.585693
+  },
+  {
+    "step": 14,
+    "candidate_index": {
+      "table": "movie_info",
+      "columns": [
+        "info_type_id",
+        "info"
+      ]
+    },
+    "estimated_cost": Infinity,
+    "decision": "proposed",
+    "note": "query_id=5a",
+    "timestamp": 1785873664.608059
+  },
+  {
+    "step": 15,
+    "candidate_index": {
+      "table": "cast_info",
+      "columns": [
+        "person_role_id"
+      ]
+    },
+    "estimated_cost": 43685.09,
+    "decision": "proposed",
+    "note": "query_id=10a",
+    "timestamp": 1785873697.069109
+  },
+  {
+    "step": 16,
+    "candidate_index": {
+      "table": "cast_info",
+      "columns": [
+        "role_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 43575.06,
+    "decision": "proposed",
+    "note": "query_id=10a",
+    "timestamp": 1785873724.026512
+  },
+  {
+    "step": 17,
+    "candidate_index": {
+      "table": "movie_info",
+      "columns": [
+        "info_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 39447.5,
+    "decision": "proposed",
+    "note": "query_id=5a",
+    "timestamp": 1785873738.240961
+  },
+  {
+    "step": 18,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 16624.84,
+    "decision": "proposed",
+    "note": "query_id=4a",
+    "timestamp": 1785873739.122808
+  },
+  {
+    "step": 19,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "company_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 43575.06,
+    "decision": "proposed",
+    "note": "query_id=10a",
+    "timestamp": 1785873741.0653608
+  },
+  {
+    "step": 20,
+    "candidate_index": {
+      "table": "aka_title",
+      "columns": [
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 48459.24,
+    "decision": "proposed",
+    "note": "query_id=15a",
+    "timestamp": 1785873741.608819
+  },
+  {
+    "step": 21,
+    "candidate_index": {
+      "table": "movie_link",
+      "columns": [
+        "linked_movie_id"
+      ]
+    },
+    "estimated_cost": 3910.32,
+    "decision": "proposed",
+    "note": "query_id=33a",
+    "timestamp": 1785873741.748998
+  },
+  {
+    "step": 22,
+    "candidate_index": {
+      "table": "title",
+      "columns": [
+        "production_year"
+      ]
+    },
+    "estimated_cost": 19543.3,
+    "decision": "proposed",
+    "note": "query_id=1a",
+    "timestamp": 1785873743.177495
+  },
+  {
+    "step": 23,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "info",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 14772.3,
+    "decision": "proposed",
+    "note": "query_id=4a",
+    "timestamp": 1785873764.207267
+  },
+  {
+    "step": 24,
+    "candidate_index": {
+      "table": "movie_info",
+      "columns": [
+        "info_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 20199.57,
+    "decision": "proposed",
+    "note": "query_id=13a",
+    "timestamp": 1785873773.016613
+  },
+  {
+    "step": 25,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "company_id",
+        "company_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 20372.65,
+    "decision": "proposed",
+    "note": "query_id=10a",
+    "timestamp": 1785873775.6219149
+  },
+  {
+    "step": 26,
+    "candidate_index": {
+      "table": "cast_info",
+      "columns": [
+        "movie_id",
+        "person_role_id"
+      ]
+    },
+    "estimated_cost": 43582.52,
+    "decision": "proposed",
+    "note": "query_id=10a",
+    "timestamp": 1785873801.0506082
+  },
+  {
+    "step": 27,
+    "candidate_index": {
+      "table": "name",
+      "columns": [
+        "name",
+        "gender"
+      ]
+    },
+    "estimated_cost": 55709.63,
+    "decision": "proposed",
+    "note": "query_id=18a",
+    "timestamp": 1785873812.9653718
+  },
+  {
+    "step": 28,
+    "candidate_index": {
+      "table": "title",
+      "columns": [
+        "kind_id",
+        "production_year",
+        "episode_nr"
+      ]
+    },
+    "estimated_cost": 1188.96,
+    "decision": "proposed",
+    "note": "query_id=16a",
+    "timestamp": 1785873815.69441
+  },
+  {
+    "step": 29,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "company_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 43544.99,
+    "decision": "proposed",
+    "note": "query_id=10a",
+    "timestamp": 1785873831.0011141
+  },
+  {
+    "step": 30,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "info",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 2256.08,
+    "decision": "proposed",
+    "note": "query_id=12a",
+    "timestamp": 1785873834.498545
+  },
+  {
+    "step": 31,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "info",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 19535.86,
+    "decision": "proposed",
+    "note": "query_id=1a",
+    "timestamp": 1785873837.267329
+  },
+  {
+    "step": 32,
+    "candidate_index": {
+      "table": "movie_info",
+      "columns": [
+        "info_type_id",
+        "info",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": Infinity,
+    "decision": "proposed",
+    "note": "query_id=5a",
+    "timestamp": 1785873837.277781
+  },
+  {
+    "step": 33,
+    "candidate_index": {
+      "table": "person_info",
+      "columns": [
+        "person_id",
+        "info_type_id"
+      ]
+    },
+    "estimated_cost": 234.93,
+    "decision": "proposed",
+    "note": "query_id=29a",
+    "timestamp": 1785873840.874756
+  },
+  {
+    "step": 34,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "info",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 20199.06,
+    "decision": "proposed",
+    "note": "query_id=13a",
+    "timestamp": 1785873854.979193
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "info",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 4538.95,
+    "decision": "proposed",
+    "note": "query_id=22a",
+    "timestamp": 1785873858.7801611
+  },
+  {
+    "step": 36,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "company_id",
+        "company_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 10575.37,
+    "decision": "proposed",
+    "note": "query_id=12a",
+    "timestamp": 1785873861.519165
+  },
+  {
+    "step": 37,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "company_id",
+        "company_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 19544.53,
+    "decision": "proposed",
+    "note": "query_id=1a",
+    "timestamp": 1785873863.5667388
+  },
+  {
+    "step": 38,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 21222.46,
+    "decision": "proposed",
+    "note": "query_id=1a",
+    "timestamp": 1785873879.0854468
+  },
+  {
+    "step": 39,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 20205.56,
+    "decision": "proposed",
+    "note": "query_id=13a",
+    "timestamp": 1785873880.292326
+  },
+  {
+    "step": 40,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "info",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 3409.35,
+    "decision": "proposed",
+    "note": "query_id=26a",
+    "timestamp": 1785873883.206712
+  },
+  {
+    "step": 41,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "info",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 4545.22,
+    "decision": "proposed",
+    "note": "query_id=28a",
+    "timestamp": 1785873886.234656
+  },
+  {
+    "step": 42,
+    "candidate_index": {
+      "table": "movie_info",
+      "columns": [
+        "movie_id",
+        "info_type_id"
+      ]
+    },
+    "estimated_cost": 1156.58,
+    "decision": "proposed",
+    "note": "query_id=21a",
+    "timestamp": 1785873912.582191
+  },
+  {
+    "step": 43,
+    "candidate_index": {
+      "table": "cast_info",
+      "columns": [
+        "person_id",
+        "movie_id",
+        "role_id"
+      ]
+    },
+    "estimated_cost": 73968.0,
+    "decision": "proposed",
+    "note": "query_id=19a",
+    "timestamp": 1785873943.019098
+  },
+  {
+    "step": 44,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "company_id",
+        "company_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 74090.46,
+    "decision": "proposed",
+    "note": "query_id=19a",
+    "timestamp": 1785873968.210051
+  },
+  {
+    "step": 45,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "company_id",
+        "company_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 4538.86,
+    "decision": "proposed",
+    "note": "query_id=22a",
+    "timestamp": 1785873970.247137
+  },
+  {
+    "step": 46,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "company_id",
+        "company_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 20184.81,
+    "decision": "proposed",
+    "note": "query_id=13a",
+    "timestamp": 1785873971.88576
+  },
+  {
+    "step": 47,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "info",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 4532.88,
+    "decision": "proposed",
+    "note": "query_id=14a",
+    "timestamp": 1785873991.5910752
+  },
+  {
+    "step": 48,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "company_id",
+        "company_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": 47189.11,
+    "decision": "proposed",
+    "note": "query_id=15a",
+    "timestamp": 1785873993.2065501
+  },
+  {
+    "step": 49,
+    "candidate_index": {
+      "table": "title",
+      "columns": [
+        "production_year",
+        "kind_id"
+      ]
+    },
+    "estimated_cost": 4532.88,
+    "decision": "proposed",
+    "note": "query_id=14a",
+    "timestamp": 1785873995.8897212
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "info",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.633138
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "company_id",
+        "company_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.6331468
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "cast_info",
+      "columns": [
+        "person_id",
+        "role_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.633148
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "cast_info",
+      "columns": [
+        "movie_id",
+        "role_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.633149
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "aka_name",
+      "columns": [
+        "person_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.633151
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "aka_title",
+      "columns": [
+        "movie_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.633151
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "complete_cast",
+      "columns": [
+        "movie_id",
+        "subject_id",
+        "status_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.633152
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_link",
+      "columns": [
+        "movie_id",
+        "link_type_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.633153
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_link",
+      "columns": [
+        "linked_movie_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.6331542
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "person_info",
+      "columns": [
+        "person_id",
+        "info_type_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.633155
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_info",
+      "columns": [
+        "movie_id",
+        "info_type_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.633156
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "keyword",
+      "columns": [
+        "keyword"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.633157
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "company_name",
+      "columns": [
+        "country_code"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.633158
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "name",
+      "columns": [
+        "gender",
+        "name"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1785874049.633159
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "cast_info",
+      "columns": [
+        "movie_id",
+        "person_id",
+        "role_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.63457
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "cast_info",
+      "columns": [
+        "movie_id",
+        "person_role_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.6345742
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "cast_info",
+      "columns": [
+        "person_id",
+        "movie_id",
+        "role_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.6345758
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "cast_info",
+      "columns": [
+        "person_role_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.634578
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "cast_info",
+      "columns": [
+        "role_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.634579
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "company_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.63458
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_companies",
+      "columns": [
+        "movie_id",
+        "company_id",
+        "company_type_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.634582
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_info",
+      "columns": [
+        "info_type_id",
+        "info"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.634583
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_info",
+      "columns": [
+        "info_type_id",
+        "info",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.634584
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_info",
+      "columns": [
+        "info_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.6345851
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_info",
+      "columns": [
+        "movie_id",
+        "info_type_id",
+        "info"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.6345868
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "info_type_id",
+        "movie_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.634588
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_info_idx",
+      "columns": [
+        "movie_id",
+        "info_type_id",
+        "info"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.634589
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "movie_keyword",
+      "columns": [
+        "movie_id",
+        "keyword_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.63459
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "name",
+      "columns": [
+        "name",
+        "gender"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.634592
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "title",
+      "columns": [
+        "kind_id",
+        "production_year"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.634593
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "title",
+      "columns": [
+        "kind_id",
+        "production_year",
+        "episode_nr"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.6345952
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "title",
+      "columns": [
+        "production_year"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.634596
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "title",
+      "columns": [
+        "production_year",
+        "kind_id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1785874049.634597
+  }
+]

@@ -1,0 +1,2003 @@
+[
+  {
+    "step": 1,
+    "candidate_index": {
+      "table": "badges",
+      "columns": [
+        "UserId"
+      ]
+    },
+    "estimated_cost": 2944.9,
+    "decision": "proposed",
+    "note": "query_id=s1",
+    "timestamp": 1786338623.865547
+  },
+  {
+    "step": 2,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "UserId"
+      ]
+    },
+    "estimated_cost": 29074.99,
+    "decision": "proposed",
+    "note": "query_id=s2",
+    "timestamp": 1786338623.972435
+  },
+  {
+    "step": 3,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "PostId"
+      ]
+    },
+    "estimated_cost": 15813.39,
+    "decision": "proposed",
+    "note": "query_id=s9",
+    "timestamp": 1786338624.044155
+  },
+  {
+    "step": 4,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "UserId"
+      ]
+    },
+    "estimated_cost": 37716.7,
+    "decision": "proposed",
+    "note": "query_id=s5",
+    "timestamp": 1786338624.1740959
+  },
+  {
+    "step": 5,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "PostId"
+      ]
+    },
+    "estimated_cost": 13703.01,
+    "decision": "proposed",
+    "note": "query_id=s25",
+    "timestamp": 1786338624.2803478
+  },
+  {
+    "step": 6,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "UserId"
+      ]
+    },
+    "estimated_cost": 54949.95,
+    "decision": "proposed",
+    "note": "query_id=s3",
+    "timestamp": 1786338624.3844311
+  },
+  {
+    "step": 7,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostId"
+      ]
+    },
+    "estimated_cost": 6869.37,
+    "decision": "proposed",
+    "note": "query_id=s18",
+    "timestamp": 1786338624.493563
+  },
+  {
+    "step": 8,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "PostId"
+      ]
+    },
+    "estimated_cost": 31398.85,
+    "decision": "proposed",
+    "note": "query_id=s7",
+    "timestamp": 1786338624.50806
+  },
+  {
+    "step": 9,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "RelatedPostId"
+      ]
+    },
+    "estimated_cost": 7394.61,
+    "decision": "proposed",
+    "note": "query_id=s26",
+    "timestamp": 1786338624.520478
+  },
+  {
+    "step": 10,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "OwnerUserId"
+      ]
+    },
+    "estimated_cost": 13963.51,
+    "decision": "proposed",
+    "note": "query_id=s6",
+    "timestamp": 1786338624.602924
+  },
+  {
+    "step": 11,
+    "candidate_index": {
+      "table": "tags",
+      "columns": [
+        "ExcerptPostId"
+      ]
+    },
+    "estimated_cost": 2864.22,
+    "decision": "proposed",
+    "note": "query_id=s17",
+    "timestamp": 1786338624.6091928
+  },
+  {
+    "step": 12,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 28966.7,
+    "decision": "proposed",
+    "note": "query_id=s2",
+    "timestamp": 1786338636.5102248
+  },
+  {
+    "step": 13,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 21771.28,
+    "decision": "proposed",
+    "note": "query_id=s15",
+    "timestamp": 1786338636.7564118
+  },
+  {
+    "step": 14,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 52999.05,
+    "decision": "proposed",
+    "note": "query_id=s3",
+    "timestamp": 1786338636.9256399
+  },
+  {
+    "step": 15,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 6869.38,
+    "decision": "proposed",
+    "note": "query_id=s18",
+    "timestamp": 1786338637.0618591
+  },
+  {
+    "step": 16,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "PostId",
+        "VoteTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 13703.86,
+    "decision": "proposed",
+    "note": "query_id=s25",
+    "timestamp": 1786338637.233501
+  },
+  {
+    "step": 17,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "UserId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 19719.32,
+    "decision": "proposed",
+    "note": "query_id=s84",
+    "timestamp": 1786338637.3773901
+  },
+  {
+    "step": 18,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "PostId",
+        "LinkTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 22461.25,
+    "decision": "proposed",
+    "note": "query_id=s8",
+    "timestamp": 1786338637.3933141
+  },
+  {
+    "step": 19,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "RelatedPostId",
+        "LinkTypeId"
+      ]
+    },
+    "estimated_cost": 7408.75,
+    "decision": "proposed",
+    "note": "query_id=s40",
+    "timestamp": 1786338637.4064121
+  },
+  {
+    "step": 20,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "OwnerUserId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 11605.6,
+    "decision": "proposed",
+    "note": "query_id=s20",
+    "timestamp": 1786338637.486544
+  },
+  {
+    "step": 21,
+    "candidate_index": {
+      "table": "badges",
+      "columns": [
+        "UserId",
+        "Date"
+      ]
+    },
+    "estimated_cost": 27779.7,
+    "decision": "proposed",
+    "note": "query_id=s2",
+    "timestamp": 1786338637.5352829
+  },
+  {
+    "step": 22,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 19797.23,
+    "decision": "proposed",
+    "note": "query_id=s84",
+    "timestamp": 1786338648.198004
+  },
+  {
+    "step": 23,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 25609.58,
+    "decision": "proposed",
+    "note": "query_id=s88",
+    "timestamp": 1786338648.314455
+  },
+  {
+    "step": 24,
+    "candidate_index": {
+      "table": "users",
+      "columns": [
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 11605.65,
+    "decision": "proposed",
+    "note": "query_id=s20",
+    "timestamp": 1786338648.346056
+  },
+  {
+    "step": 25,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "VoteTypeId",
+        "PostId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 13704.66,
+    "decision": "proposed",
+    "note": "query_id=s25",
+    "timestamp": 1786338648.515114
+  },
+  {
+    "step": 26,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "CreationDate",
+        "PostId"
+      ]
+    },
+    "estimated_cost": 5933.24,
+    "decision": "proposed",
+    "note": "query_id=s21",
+    "timestamp": 1786338648.6590898
+  },
+  {
+    "step": 27,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "UserId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 64513.57,
+    "decision": "proposed",
+    "note": "query_id=s4",
+    "timestamp": 1786338648.820632
+  },
+  {
+    "step": 28,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "PostId"
+      ]
+    },
+    "estimated_cost": 54153.97,
+    "decision": "proposed",
+    "note": "query_id=s3",
+    "timestamp": 1786338648.985641
+  },
+  {
+    "step": 29,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "Id",
+        "OwnerUserId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 11531.18,
+    "decision": "proposed",
+    "note": "query_id=s20",
+    "timestamp": 1786338649.0548658
+  },
+  {
+    "step": 30,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "CreationDate",
+        "UserId",
+        "PostId"
+      ]
+    },
+    "estimated_cost": 25629.73,
+    "decision": "proposed",
+    "note": "query_id=s88",
+    "timestamp": 1786338658.765974
+  },
+  {
+    "step": 31,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "PostId",
+        "Score"
+      ]
+    },
+    "estimated_cost": 15813.1,
+    "decision": "proposed",
+    "note": "query_id=s9",
+    "timestamp": 1786338658.854131
+  },
+  {
+    "step": 32,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "CreationDate",
+        "Id",
+        "OwnerUserId"
+      ]
+    },
+    "estimated_cost": 11460.45,
+    "decision": "proposed",
+    "note": "query_id=s20",
+    "timestamp": 1786338658.9231439
+  },
+  {
+    "step": 33,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "PostId",
+        "CreationDate",
+        "VoteTypeId"
+      ]
+    },
+    "estimated_cost": 37910.93,
+    "decision": "proposed",
+    "note": "query_id=s95",
+    "timestamp": 1786338659.0833468
+  },
+  {
+    "step": 34,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostId",
+        "PostHistoryTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 38111.38,
+    "decision": "proposed",
+    "note": "query_id=s95",
+    "timestamp": 1786338659.228249
+  },
+  {
+    "step": 35,
+    "candidate_index": {
+      "table": "users",
+      "columns": [
+        "CreationDate",
+        "Id"
+      ]
+    },
+    "estimated_cost": 5864.86,
+    "decision": "proposed",
+    "note": "query_id=s21",
+    "timestamp": 1786338659.266903
+  },
+  {
+    "step": 36,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "CreationDate",
+        "UserId",
+        "PostId"
+      ]
+    },
+    "estimated_cost": 17626.98,
+    "decision": "proposed",
+    "note": "query_id=s84",
+    "timestamp": 1786338669.840788
+  },
+  {
+    "step": 37,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "CreationDate",
+        "PostId"
+      ]
+    },
+    "estimated_cost": 11610.68,
+    "decision": "proposed",
+    "note": "query_id=s20",
+    "timestamp": 1786338669.9823282
+  },
+  {
+    "step": 38,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "CreationDate",
+        "OwnerUserId",
+        "Id"
+      ]
+    },
+    "estimated_cost": 11449.0,
+    "decision": "proposed",
+    "note": "query_id=s20",
+    "timestamp": 1786338670.047078
+  },
+  {
+    "step": 39,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "VoteTypeId",
+        "CreationDate",
+        "PostId"
+      ]
+    },
+    "estimated_cost": 37233.44,
+    "decision": "proposed",
+    "note": "query_id=s96",
+    "timestamp": 1786338670.218577
+  },
+  {
+    "step": 40,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "BountyAmount",
+        "UserId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 1432.3,
+    "decision": "proposed",
+    "note": "query_id=s24",
+    "timestamp": 1786338670.375191
+  },
+  {
+    "step": 41,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "LinkTypeId",
+        "PostId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 22502.84,
+    "decision": "proposed",
+    "note": "query_id=s8",
+    "timestamp": 1786338670.38877
+  },
+  {
+    "step": 42,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "CreationDate",
+        "Id",
+        "OwnerUserId",
+        "CommentCount"
+      ]
+    },
+    "estimated_cost": 16733.79,
+    "decision": "proposed",
+    "note": "query_id=s7",
+    "timestamp": 1786338683.976809
+  },
+  {
+    "step": 43,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "PostId",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 20228.21,
+    "decision": "proposed",
+    "note": "query_id=s86",
+    "timestamp": 1786338684.112313
+  },
+  {
+    "step": 44,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "CreationDate",
+        "PostId"
+      ]
+    },
+    "estimated_cost": 3130159.74,
+    "decision": "proposed",
+    "note": "query_id=s38",
+    "timestamp": 1786338684.30803
+  },
+  {
+    "step": 45,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 2327417.54,
+    "decision": "proposed",
+    "note": "query_id=s38",
+    "timestamp": 1786338684.4777658
+  },
+  {
+    "step": 46,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "LinkTypeId",
+        "CreationDate",
+        "PostId"
+      ]
+    },
+    "estimated_cost": 26008.19,
+    "decision": "proposed",
+    "note": "query_id=s111",
+    "timestamp": 1786338684.492589
+  },
+  {
+    "step": 47,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "PostId",
+        "VoteTypeId"
+      ]
+    },
+    "estimated_cost": 37486.21,
+    "decision": "proposed",
+    "note": "query_id=s96",
+    "timestamp": 1786338684.603801
+  },
+  {
+    "step": 48,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "UserId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 3276612.53,
+    "decision": "proposed",
+    "note": "query_id=s38",
+    "timestamp": 1786338696.531894
+  },
+  {
+    "step": 49,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 3303287.97,
+    "decision": "proposed",
+    "note": "query_id=s38",
+    "timestamp": 1786338696.657907
+  },
+  {
+    "step": 50,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "VoteTypeId",
+        "PostId"
+      ]
+    },
+    "estimated_cost": 37408.6,
+    "decision": "proposed",
+    "note": "query_id=s96",
+    "timestamp": 1786338696.808059
+  },
+  {
+    "step": 51,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "PostTypeId",
+        "Id",
+        "OwnerUserId"
+      ]
+    },
+    "estimated_cost": 18095.7,
+    "decision": "proposed",
+    "note": "query_id=s42",
+    "timestamp": 1786338696.889239
+  },
+  {
+    "step": 52,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "RelatedPostId",
+        "LinkTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 7407.26,
+    "decision": "proposed",
+    "note": "query_id=s40",
+    "timestamp": 1786338696.901781
+  },
+  {
+    "step": 53,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "PostId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 57346.34,
+    "decision": "proposed",
+    "note": "query_id=s68",
+    "timestamp": 1786338697.019611
+  },
+  {
+    "step": 54,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 5090786.08,
+    "decision": "proposed",
+    "note": "query_id=s39",
+    "timestamp": 1786338709.42893
+  },
+  {
+    "step": 55,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 3555204.7,
+    "decision": "proposed",
+    "note": "query_id=s39",
+    "timestamp": 1786338709.603293
+  },
+  {
+    "step": 56,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "PostId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 34106.26,
+    "decision": "proposed",
+    "note": "query_id=s96",
+    "timestamp": 1786338709.730291
+  },
+  {
+    "step": 57,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "PostTypeId",
+        "CreationDate",
+        "Id",
+        "OwnerUserId"
+      ]
+    },
+    "estimated_cost": 18047.95,
+    "decision": "proposed",
+    "note": "query_id=s42",
+    "timestamp": 1786338709.812417
+  },
+  {
+    "step": 58,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "RelatedPostId",
+        "LinkTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 9417.09,
+    "decision": "proposed",
+    "note": "query_id=s53",
+    "timestamp": 1786338709.8252192
+  },
+  {
+    "step": 59,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "UserId",
+        "Score",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 3299259.97,
+    "decision": "proposed",
+    "note": "query_id=s38",
+    "timestamp": 1786338719.98485
+  },
+  {
+    "step": 60,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "UserId",
+        "PostHistoryTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 3212801.23,
+    "decision": "proposed",
+    "note": "query_id=s38",
+    "timestamp": 1786338720.157172
+  },
+  {
+    "step": 61,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "PostId",
+        "VoteTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 38620.0,
+    "decision": "proposed",
+    "note": "query_id=s96",
+    "timestamp": 1786338720.299598
+  },
+  {
+    "step": 62,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "CreationDate",
+        "OwnerUserId"
+      ]
+    },
+    "estimated_cost": 30207.78,
+    "decision": "proposed",
+    "note": "query_id=s7",
+    "timestamp": 1786338720.3606248
+  },
+  {
+    "step": 63,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "CreationDate",
+        "PostId"
+      ]
+    },
+    "estimated_cost": 37939.78,
+    "decision": "proposed",
+    "note": "query_id=s96",
+    "timestamp": 1786338731.610688
+  },
+  {
+    "step": 64,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 13012239.1,
+    "decision": "proposed",
+    "note": "query_id=s113",
+    "timestamp": 1786338731.749838
+  },
+  {
+    "step": 65,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "CreationDate",
+        "UserId",
+        "Score"
+      ]
+    },
+    "estimated_cost": 21612.23,
+    "decision": "proposed",
+    "note": "query_id=s84",
+    "timestamp": 1786338731.837585
+  },
+  {
+    "step": 66,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "VoteTypeId",
+        "PostId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 37727.65,
+    "decision": "proposed",
+    "note": "query_id=s96",
+    "timestamp": 1786338732.004135
+  },
+  {
+    "step": 67,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "PostTypeId",
+        "OwnerUserId",
+        "Id"
+      ]
+    },
+    "estimated_cost": 4813.8,
+    "decision": "proposed",
+    "note": "query_id=s93",
+    "timestamp": 1786338732.085623
+  },
+  {
+    "step": 68,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 13000355.04,
+    "decision": "proposed",
+    "note": "query_id=s113",
+    "timestamp": 1786338742.581704
+  },
+  {
+    "step": 69,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 12203260.43,
+    "decision": "proposed",
+    "note": "query_id=s113",
+    "timestamp": 1786338742.6873002
+  },
+  {
+    "step": 70,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "PostId",
+        "VoteTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 12784.8,
+    "decision": "proposed",
+    "note": "query_id=s129",
+    "timestamp": 1786338742.8136792
+  },
+  {
+    "step": 71,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "PostId",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 474086.81,
+    "decision": "proposed",
+    "note": "query_id=s106",
+    "timestamp": 1786338742.967083
+  },
+  {
+    "step": 72,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "CreationDate",
+        "Id",
+        "OwnerUserId"
+      ]
+    },
+    "estimated_cost": 30972.88,
+    "decision": "proposed",
+    "note": "query_id=s7",
+    "timestamp": 1786338753.692568
+  },
+  {
+    "step": 73,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "CreationDate",
+        "PostId"
+      ]
+    },
+    "estimated_cost": 11606.28,
+    "decision": "proposed",
+    "note": "query_id=s20",
+    "timestamp": 1786338753.863459
+  },
+  {
+    "step": 74,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "VoteTypeId",
+        "PostId"
+      ]
+    },
+    "estimated_cost": 37477.81,
+    "decision": "proposed",
+    "note": "query_id=s96",
+    "timestamp": 1786338754.0091462
+  },
+  {
+    "step": 75,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 149249.71,
+    "decision": "proposed",
+    "note": "query_id=s34",
+    "timestamp": 1786338754.116
+  },
+  {
+    "step": 76,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "CreationDate",
+        "Id",
+        "OwnerUserId"
+      ]
+    },
+    "estimated_cost": 11441.73,
+    "decision": "proposed",
+    "note": "query_id=s20",
+    "timestamp": 1786338769.5582888
+  },
+  {
+    "step": 77,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "VoteTypeId",
+        "PostId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 12767.61,
+    "decision": "proposed",
+    "note": "query_id=s129",
+    "timestamp": 1786338769.821751
+  },
+  {
+    "step": 78,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "RelatedPostId",
+        "LinkTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": 20088.37,
+    "decision": "proposed",
+    "note": "query_id=s139",
+    "timestamp": 1786338769.836807
+  },
+  {
+    "step": 79,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": 21034.38,
+    "decision": "proposed",
+    "note": "query_id=s15",
+    "timestamp": 1786338769.946563
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "CreationDate",
+        "Id",
+        "OwnerUserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786338813.887939
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "VoteTypeId",
+        "PostId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786338813.8879519
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786338813.8879519
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786338813.8879519
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "RelatedPostId",
+        "LinkTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "accepted",
+    "note": "final recommendation",
+    "timestamp": 1786338813.8879528
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "badges",
+      "columns": [
+        "UserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888099
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "badges",
+      "columns": [
+        "UserId",
+        "Date"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888099
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881001
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "CreationDate",
+        "UserId",
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881001
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "CreationDate",
+        "UserId",
+        "Score"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888101
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888101
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "PostId",
+        "Score"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888101
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "CreationDate",
+        "UserId",
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881018
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "PostId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881018
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "PostId",
+        "UserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888109
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "Score",
+        "UserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888109
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "UserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881102
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "comments",
+      "columns": [
+        "UserId",
+        "Score",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881102
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "CreationDate",
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888111
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "CreationDate",
+        "UserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888111
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "CreationDate",
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888112
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888112
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "PostId",
+        "UserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888112
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "UserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881128
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostHistoryTypeId",
+        "UserId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881128
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888114
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888114
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "PostId",
+        "PostHistoryTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888115
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "UserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888115
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "UserId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888116
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postHistory",
+      "columns": [
+        "UserId",
+        "PostHistoryTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881211
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "LinkTypeId",
+        "CreationDate",
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888122
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "LinkTypeId",
+        "PostId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888122
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881228
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "PostId",
+        "LinkTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881228
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "RelatedPostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888124
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "postLinks",
+      "columns": [
+        "RelatedPostId",
+        "LinkTypeId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888124
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "CreationDate",
+        "Id",
+        "OwnerUserId",
+        "CommentCount"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888124
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "CreationDate",
+        "OwnerUserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888125
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "CreationDate",
+        "OwnerUserId",
+        "Id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888125
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "Id",
+        "OwnerUserId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888126
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "OwnerUserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888126
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "OwnerUserId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888126
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "PostTypeId",
+        "CreationDate",
+        "Id",
+        "OwnerUserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888127
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "PostTypeId",
+        "Id",
+        "OwnerUserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888127
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "posts",
+      "columns": [
+        "PostTypeId",
+        "OwnerUserId",
+        "Id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888128
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "tags",
+      "columns": [
+        "ExcerptPostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888128
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "users",
+      "columns": [
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888129
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "users",
+      "columns": [
+        "CreationDate",
+        "Id"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888129
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "BountyAmount",
+        "UserId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888129
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "CreationDate",
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888134
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888135
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "PostId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888135
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "PostId",
+        "CreationDate",
+        "VoteTypeId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.88814
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "PostId",
+        "VoteTypeId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.88814
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "PostId",
+        "VoteTypeId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881412
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "UserId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881412
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "UserId",
+        "CreationDate"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.8881412
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "VoteTypeId",
+        "CreationDate",
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888142
+  },
+  {
+    "step": 80,
+    "candidate_index": {
+      "table": "votes",
+      "columns": [
+        "VoteTypeId",
+        "PostId"
+      ]
+    },
+    "estimated_cost": null,
+    "decision": "rejected",
+    "note": "tried but not in final recommendation",
+    "timestamp": 1786338813.888142
+  }
+]

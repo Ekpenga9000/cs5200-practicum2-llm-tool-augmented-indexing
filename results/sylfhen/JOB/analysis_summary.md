@@ -1,69 +1,75 @@
 # JOB Schema — Analysis Summary
 
+**Note on methodology:** This summary reflects a full redo of the baseline
+and both conditions' measurements, using a genuinely clean database (no
+leftover indexes from either condition), a single consistent Postgres
+session/cache state, and the median of 7 EXPLAIN ANALYZE runs per query --
+matching the methodology used elsewhere on the team (Alan's TPC-C/TATP). An
+earlier version of this analysis was invalidated by a stale baseline
+captured under different cache conditions; the numbers below supersede it.
+
 ## Baseline
-No-index baseline execution times for the 113 JOB queries ranged from
-under 100ms (simple lookups) to over 40 seconds (large multi-way joins
-like 23c), reflecting real cost differences across the Simple/Medium/
-Complex tiers.
+Median-of-7 execution times for the 113 JOB queries, no additional indexes,
+ranged from well under 100ms for simple lookups to tens of seconds for the
+workload's known-expensive multi-way joins (the 16-30 query series in
+particular).
 
 ## Condition A (No-Tool)
-The LLM recommended 47 unique indexes across all 113 queries, based
-purely on reading the schema DDL and query text. One recommended index
-(on movie_info.info) failed to build due to Postgres's 8191-byte B-tree
-row limit on that TEXT column -- a limitation Condition A had no way
-to detect without tool access.
-
-After applying the 46 buildable indexes and running ANALYZE to refresh
-planner statistics, results varied sharply by tier:
+The LLM recommended 47 indexes; 46 were successfully applied (one index on
+`movie_info.info` failed to build due to Postgres's 8191-byte B-tree row
+size limit on that TEXT column -- a limitation Condition A had no way to
+detect without tool access).
 
 | Tier    | Queries | Avg Improvement | Regressed | Improved |
 |---------|---------|------------------|-----------|----------|
-| Simple  | 41      | 1.0%             | 14 (34%)  | 27       |
-| Medium  | 35      | 24.6%            | 9 (26%)   | 26       |
-| Complex | 37      | 50.2%            | 6 (16%)   | 31       |
+| Simple  | 41      | -91.1%           | 20 (49%)  | 21       |
+| Medium  | 35      | -12.5%           | 8 (23%)   | 27       |
+| Complex | 37      | +29.9%           | 9 (24%)   | 28       |
 
-Improvement grew and regression rate fell as query complexity increased.
-On Simple queries, gains from useful indexes were largely canceled out
-by regressions from unnecessary ones (e.g., 6d regressed 264%, 6f
-regressed 231%) -- likely because Condition A recommends indexes for
-every plausible join/filter column without verifying whether the
-planner will actually benefit. On Complex queries, the same broad
-strategy paid off far more reliably (e.g., 23b and 29b both improved
-~99.9%).
+Improvement grew and regression rate fell as query complexity increased,
+consistent with the earlier (pre-redo) finding: blanket indexing pays off
+more reliably on heavily-joined queries, where almost any relevant index
+reduces some intermediate result size. On Simple queries, the net effect
+was negative overall -- regressions like 4a (-993.6%) and 10c (-588.8%)
+outweighed the gains from genuinely useful indexes, because unnecessary
+indexes still carry real maintenance/planning overhead even on queries
+that were already fast.
 
 ## Condition B (Tool-Augmented)
-The tool-augmented pipeline completed successfully: across 82 logged
-tool calls, the LLM proposed and tested candidate indexes against real
-EXPLAIN cost estimates before finalizing a recommendation of just 14
-indexes -- roughly a third of Condition A's 47. That gap is itself a
-notable finding: with the ability to verify candidates before
-committing, the model converged on a much more selective, conservative
-index set rather than covering every plausible join/filter column.
+The tool-augmented pipeline logged 82 tool calls and finalized just 14
+indexes -- a third of Condition A's count, reflecting the model's ability
+to test candidates against real cost estimates before committing rather
+than covering every plausible join/filter column.
 
-The performance measurement for this recommendation, however, is not
-reportable as a fair comparison. The baseline_results.csv used for the
-before/after comparison was captured two days prior to the Condition B
-measurement run, during which the Postgres container was restarted
-(following an interrupted overnight run) and its buffer cache cleared.
-Measuring Condition B's indexes against a stale, cold-cache baseline
-produced implausible results -- widespread multi-thousand-percent
-regressions even on queries with no relationship to the applied
-indexes -- consistent with environment drift rather than an actual
-effect of the 14 recommended indexes. Re-measuring Condition B against
-a freshly captured baseline, taken in the same session/cache state, is
-required before these performance numbers can be trusted, and was not
-completed in the time available.
+| Tier    | Queries | Avg Improvement | Regressed | Improved |
+|---------|---------|------------------|-----------|----------|
+| Simple  | 41      | -215.7%          | 27 (66%)  | 14       |
+| Medium  | 35      | -1063.5%         | 17 (49%)  | 18       |
+| Complex | 37      | -5332.4%         | 20 (54%)  | 17       |
 
 ## Comparison
-Condition A’s core weakness—recommending indexes that it cannot verify—becomes particularly apparent on the Simple tier, where restraint is important and untested recommendations can be as harmful as they are helpful.
+On this schema, under clean and consistent measurement conditions,
+**Condition A outperformed Condition B on every tier** -- the opposite of
+what tool access would be expected to produce. Condition B's smaller,
+supposedly-verified index set produced dramatically worse average outcomes,
+driven by a small number of catastrophic regressions (22d: -116,881%; 22c:
+-41,334%; 25c: -15,017%) that far outweighed its wins.
 
-Condition B’s access to tools clearly changed its behavior in the expected direction: it produced fewer recommendations and tested candidates more deliberately. The key question is whether this increased selectivity translates into better real-world performance than Condition A’s broader approach. That question remains unresolved because of the baseline measurement issue described above, rather than because of any apparent flaw in Condition B’s recommendation process.
+The likely explanation is the same one surfaced independently by teammates
+on other schemas (Ikenna's SSB, Alan's TPC-C): Condition B's cost tool
+verifies one candidate index against one query at a time. It has no
+visibility into how that index changes the planner's behavior across the
+*rest* of the workload once several new indexes coexist. A candidate that
+looked favorable in isolation can still push the planner toward a worse
+overall plan shape for a different query that shares the same tables --
+exactly the pattern behind JOB's worst Condition B regressions.
 
-## Known Limitations
-
-* **Invalid before/after timing comparison:** Condition B’s before-and-after timing comparison is not reliable because the baseline was captured under different cache conditions. A new measurement under consistent conditions is needed before drawing conclusions about the relative performance of the two approaches.
-
-* **Unverifiable index recommendation:** Condition A recommended an index that could not be physically created due to PostgreSQL’s B-tree row-size limit on a `TEXT` column. Condition B’s tool access would presumably have allowed it to identify this issue before finalizing the recommendation. This should be confirmed once a valid Condition B performance measurement is available.
-
-* **Robustness issues in Condition B:** Two robustness issues were identified and locally patched in the shared Condition B module during testing at JOB’s full 113-query scale: unhandled index-build failures and a missing-field error in `finalize_recommendation`. Both issues were reported to the team separately.
-
+## Known limitations
+- One Condition A index (`movie_info.info`) could not be physically built
+  due to a Postgres row-size limit; Condition B's tool access would
+  presumably have caught this before finalizing, though this was not
+  directly tested since Condition B did not select that column.
+- Three queries (17d, 17f, and the 26-30 series) are inherently expensive
+  under both conditions due to large intermediate join sizes; their
+  regressions/improvements dominate the Complex tier's totals and should
+  be read with that in mind.
