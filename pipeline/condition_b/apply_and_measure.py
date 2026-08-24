@@ -28,13 +28,52 @@ import psycopg2
 RUNS_PER_QUERY = 7  # take the median to smooth out timing noise on sub-ms queries
 
 
+def resolve_database_name(schema_name: str) -> str:
+    env_db = os.getenv("DB_DATABASE") or os.getenv("PGDATABASE")
+    candidates = []
+    if env_db:
+        candidates.append(env_db)
+    candidates.extend([f"{schema_name}_test", schema_name, "postgres"])
+    for candidate in candidates:
+        if candidate and candidate.strip():
+            return candidate
+    return "postgres"
+
+
 def measure_query(cur, query_text):
+    statements = [statement.strip() for statement in query_text.split(";") if statement.strip()]
+    explainable_index = next(
+        (index for index, statement in enumerate(statements)
+         if statement.lower().startswith(("select", "with", "values"))),
+        None,
+    )
+    explainable_statement = query_text.strip().rstrip(";")
+    setup_statements = []
+    cleanup_statements = []
+    if explainable_index is not None and len(statements) > 1:
+        setup_statements = statements[:explainable_index]
+        explainable_statement = statements[explainable_index]
+        cleanup_statements = statements[explainable_index + 1:]
+
+    for statement in setup_statements:
+        cur.execute(statement)
+
     times = []
-    for _ in range(RUNS_PER_QUERY):
-        cur.execute(f"EXPLAIN (ANALYZE, FORMAT JSON) {query_text}")
-        plan_json = cur.fetchone()[0]
-        times.append(plan_json[0]["Execution Time"])
-    return statistics.median(times)
+    try:
+        cur.execute("SET statement_timeout = 120000")
+        cur.execute(f"EXPLAIN (ANALYZE, FORMAT JSON) {explainable_statement}")
+        for _ in range(RUNS_PER_QUERY):
+            cur.execute("SET statement_timeout = 120000")
+            cur.execute(f"EXPLAIN (ANALYZE, FORMAT JSON) {explainable_statement}")
+            plan_json = cur.fetchone()[0]
+            times.append(plan_json[0]["Execution Time"])
+        return statistics.median(times)
+    finally:
+        for statement in cleanup_statements:
+            try:
+                cur.execute(statement)
+            except Exception:
+                cur.connection.rollback()
 
 
 def load_baseline(baseline_csv_path):
@@ -70,8 +109,9 @@ def run(schema_workload_path, recommendation_path, baseline_csv_path, out_csv_pa
     baseline_times = load_baseline(baseline_csv_path)
 
     pw = os.environ.get("PGPASSWORD") or getpass.getpass("Postgres password for user 'postgres': ")
+    db_name = resolve_database_name(schema_workload["schema_name"])
     conn = psycopg2.connect(
-        dbname=os.getenv("DB_DATABASE", os.getenv("PGDATABASE", "postgres")),
+        dbname=db_name,
         user=os.getenv("PGUSER", "postgres"),
         password=pw,
         host=os.getenv("PGHOST", "localhost"),
@@ -82,9 +122,10 @@ def run(schema_workload_path, recommendation_path, baseline_csv_path, out_csv_pa
 
     schema_name = schema_workload["schema_name"]
     cur.execute(f'SET search_path TO "{schema_name}", public')
-    cur.execute("SET statement_timeout = 120000")
+    cur.execute("SET statement_timeout = 0")
 
     apply_indexes(cur, recommendation["recommended_indexes"])
+    cur.execute("SET statement_timeout = 120000")
 
     rows = []
     for q in schema_workload["queries"]:
@@ -93,7 +134,6 @@ def run(schema_workload_path, recommendation_path, baseline_csv_path, out_csv_pa
         print(f"Re-running {query_id} with new indexes...")
 
         try:
-            cur.execute(f"EXPLAIN (ANALYZE, FORMAT JSON) {query_text}")  # warm-up run
             exec_time_after = measure_query(cur, query_text)
         except Exception as e:
             conn.rollback()
