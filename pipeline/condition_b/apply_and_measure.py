@@ -25,6 +25,8 @@ import getpass
 import statistics
 import psycopg2
 
+csv.field_size_limit(10**8)
+
 RUNS_PER_QUERY = 7  # take the median to smooth out timing noise on sub-ms queries
 
 
@@ -53,7 +55,10 @@ def measure_query(cur, query_text):
     if explainable_index is not None and len(statements) > 1:
         setup_statements = statements[:explainable_index]
         explainable_statement = statements[explainable_index]
-        cleanup_statements = statements[explainable_index + 1:]
+        cleanup_statements = [
+            statement for statement in statements[explainable_index + 1:]
+            if not statement.lower().startswith(("select", "with", "values"))
+        ]
 
     for statement in setup_statements:
         cur.execute(statement)
