@@ -25,6 +25,18 @@ from condition_b import run_condition_b
 from real_index_estimator import RealIndexCostEstimator
 
 
+def resolve_database_name(schema_name: str) -> str:
+    env_db = os.getenv("DB_DATABASE") or os.getenv("PGDATABASE")
+    candidates = []
+    if env_db:
+        candidates.append(env_db)
+    candidates.extend([f"{schema_name}_test", schema_name, "postgres"])
+    for candidate in candidates:
+        if candidate and candidate.strip():
+            return candidate
+    return "postgres"
+
+
 def main():
     if len(sys.argv) != 3:
         print("Usage: python run.py <schema_workload.json> <recommendation_out.json>")
@@ -36,8 +48,9 @@ def main():
         schema_workload = json.load(f)
 
     pw = os.environ.get("PGPASSWORD") or getpass.getpass("Postgres password for user 'postgres': ")
+    db_name = resolve_database_name(schema_workload["schema_name"])
     conn = psycopg2.connect(
-        dbname=os.getenv("DB_DATABASE", os.getenv("PGDATABASE", "postgres")),
+        dbname=db_name,
         user=os.getenv("PGUSER", "postgres"),
         password=pw,
         host=os.getenv("PGHOST", "localhost"),
