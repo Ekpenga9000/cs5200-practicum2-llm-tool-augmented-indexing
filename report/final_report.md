@@ -58,8 +58,8 @@ A consolidated table is included in [combined/combined_results.csv](../combined/
 
 ### 4.2 Pending rows at submission-finalization time
 - TPC-DS Condition B measurement output is complete in the repository; 4 rows in the CSV have missing `execution_time_ms_after` values (Q14, Q23, Q24, Q39) and are documented as measurement edge cases.
-- JOB Condition B output pending.
-- STATS Condition B output pending.
+- JOB: Condition A improved 76/113 queries, Condition B improved 49/113 with 14 finalized indexes (82 tool calls); Condition A outperformed Condition B on this schema under clean, consistent measurement.
+- STATS: Condition A improved 57/146 queries, Condition B improved 52/146 with 5 finalized indexes (79 tool calls, 74 rejected); Condition B outperformed Condition A on average on this schema, the opposite pattern from JOB.
 
 ## 5. Interpretation
 The strongest cross-domain takeaway is that tool augmentation is workload-sensitive.

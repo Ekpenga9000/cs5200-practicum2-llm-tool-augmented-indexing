@@ -15,8 +15,8 @@ Conditions compared:
 | ------- | ------ | ------: | ------------------------------------: | ------------------------------------: | -------------: | ------------------------------------------------------------ |
 | Louis   | TPC-H  |      22 |                           11 / 11 / 0 |                            13 / 9 / 0 |             23 | Complete                                                     |
 | Louis   | TPC-DS |      99 |                            0 / 99 / 0 |                            2 / 93 / 0 |             13 | Complete (4 rows missing after-time values: Q14 Q23 Q24 Q39) |
-| Sylfhen | JOB    |     113 |                           84 / 29 / 0 |                               Pending |        Pending | Condition B pending                                          |
-| Sylfhen | STATS  |     146 |                           94 / 52 / 0 |                               Pending |              5 | Baseline + Condition A complete; Condition B pending         |
+| Sylfhen | JOB    |     113 |                           76 / 37 / 0 |   49 / 64 / 0 |             14 | Complete  |
+| Sylfhen | STATS  |     146 |                           57 / 89 / 0 |   52 / 94 / 0 |              5 | Complete  |
 | Alan    | TPC-C  |      12 |                             6 / 3 / 3 |                             6 / 3 / 3 |              3 | Complete                                                     |
 | Alan    | TATP   |      12 |                             9 / 2 / 1 |                            10 / 2 / 0 |              8 | Complete                                                     |
 | Ikenna  | SSB    |      13 |                            11 / 2 / 0 |                             5 / 8 / 0 |             14 | Complete                                                     |
@@ -49,7 +49,7 @@ The TPC-DS Condition B run finalized 13 indexes versus 202 indexes in Condition 
 
 Cross-team aggregation is currently slowed by:
 
-- Pending Condition B files for JOB and STATS.
+- JOB and STATS Condition B files are now complete (see results/sylfhen/JOB and results/sylfhen/STATS).
 
 ## Threats to Validity
 
@@ -58,9 +58,7 @@ Cross-team aggregation is currently slowed by:
 
 ## What needs to happen before final submission lock
 
-1. Add JOB Condition B outputs under [results/sylfhen/JOB](../results/sylfhen/JOB).
-2. Add STATS Condition B outputs under [results/sylfhen/STATS](../results/sylfhen/STATS).
-3. Re-export this combined table after pending rows are completed.
+1. All rows complete; no outstanding items for Sylfhen's schemas.
 
 ## Conclusion
 
