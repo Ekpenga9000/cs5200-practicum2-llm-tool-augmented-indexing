@@ -49,7 +49,7 @@ The TPC-DS Condition B run finalized 13 indexes versus 202 indexes in Condition 
 
 Cross-team aggregation is currently slowed by:
 
-- Pending Condition B files for JOB and STATS.
+- JOB and STATS Condition B files are now complete (see results/sylfhen/JOB and results/sylfhen/STATS).
 
 ## Threats to Validity
 
@@ -58,9 +58,7 @@ Cross-team aggregation is currently slowed by:
 
 ## What needs to happen before final submission lock
 
-1. Add JOB Condition B outputs under [results/sylfhen/JOB](../results/sylfhen/JOB).
-2. Add STATS Condition B outputs under [results/sylfhen/STATS](../results/sylfhen/STATS).
-3. Re-export this combined table after pending rows are completed.
+1. All rows complete; no outstanding items for Sylfhen's schemas.
 
 ## Conclusion
 
