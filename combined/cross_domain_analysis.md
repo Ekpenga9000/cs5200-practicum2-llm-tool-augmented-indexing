@@ -15,8 +15,8 @@ Conditions compared:
 | ------- | ------ | ------: | ------------------------------------: | ------------------------------------: | -------------: | ------------------------------------------------------------ |
 | Louis   | TPC-H  |      22 |                           11 / 11 / 0 |                            13 / 9 / 0 |             23 | Complete                                                     |
 | Louis   | TPC-DS |      99 |                            0 / 99 / 0 |                            2 / 93 / 0 |             13 | Complete (4 rows missing after-time values: Q14 Q23 Q24 Q39) |
-| Sylfhen | JOB    |     113 |                           84 / 29 / 0 |                               Pending |        Pending | Condition B pending                                          |
-| Sylfhen | STATS  |     146 |                           94 / 52 / 0 |                               Pending |              5 | Baseline + Condition A complete; Condition B pending         |
+| Sylfhen | JOB    |     113 |                           76 / 37 / 0 |   49 / 64 / 0 |             14 | Complete  |
+| Sylfhen | STATS  |     146 |                           57 / 89 / 0 |   52 / 94 / 0 |              5 | Complete  |
 | Alan    | TPC-C  |      12 |                             6 / 3 / 3 |                             6 / 3 / 3 |              3 | Complete                                                     |
 | Alan    | TATP   |      12 |                             9 / 2 / 1 |                            10 / 2 / 0 |              8 | Complete                                                     |
 | Ikenna  | SSB    |      13 |                            11 / 2 / 0 |                             5 / 8 / 0 |             14 | Complete                                                     |
