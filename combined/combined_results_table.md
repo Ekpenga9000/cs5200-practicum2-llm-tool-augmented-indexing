@@ -1,6 +1,6 @@
 # Combined Results
 
-Means are computed over valid timing values in each benchmark's aligned query set. Improvement is `(baseline - condition) / baseline * 100`; Tool Benefit is Condition B improvement minus Condition A improvement, in percentage points. JOB is excluded because its Condition B result file is missing.
+Means are computed over valid timing values in each benchmark's aligned query set. Improvement is `(baseline - condition) / baseline * 100`; Tool Benefit is Condition B improvement minus Condition A improvement, in percentage points.
 
 | Benchmark | Baseline mean (ms) | Condition A mean / improvement | A improved / regressed / tied | Condition B mean / improvement | B improved / regressed / tied | Tool Benefit |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -11,6 +11,6 @@ Means are computed over valid timing values in each benchmark's aligned query se
 | TATP | 17.483 | 11.689 / 33.142% | 9 / 2 / 1 | 10.890 / 37.711% | 10 / 2 / 0 | 4.569 pp |
 | SSB | 3751.628 | 2371.953 / 36.775% | 11 / 2 / 0 | 4469.543 / -19.136% | 5 / 8 / 0 | -55.911 pp |
 | DSB | 9742.138 | 8438.581 / 13.381% | 49 / 4 / 0 | 10110.858 / -3.785% | 42 / 11 / 0 | -17.165 pp |
-| JOB | N/A | N/A | N/A | N/A | N/A | N/A |
+| JOB | 9993.383 | 2729.827 / 72.684% | 76 / 37 / 0 | 41750.591 / -317.782% | 49 / 64 / 0 | -390.466 pp |
 
-JOB is shown for completeness but is not included in the numeric analysis or chart.
+JOB is included in the numeric analysis and chart. Its aggregate is strongly outlier-sensitive: query 28a dominates the baseline mean, and the negative Condition B result remains after removing the largest baseline outlier.
