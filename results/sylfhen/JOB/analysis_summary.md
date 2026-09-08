@@ -73,3 +73,56 @@ exactly the pattern behind JOB's worst Condition B regressions.
   under both conditions due to large intermediate join sizes; their
   regressions/improvements dominate the Complex tier's totals and should
   be read with that in mind.
+
+## Case Study: Query 22d — Why a Recommended Index Caused a 30-Minute Regression
+
+Query 22d was Condition B's single worst regression (-116,881% vs. baseline).
+Investigation (prompted by a teammate review, see below) confirms this is a
+genuine finding about index design, not a measurement artifact.
+
+**Verification steps taken before diagnosing:**
+- Confirmed `search_path`/schema resolution was not a factor: all JOB tables
+  live in `public`, and the `schema_name: "postgres"` field in Condition B's
+  input JSON is only used to select the database to connect to -- it has no
+  effect on table/schema resolution.
+- Discovered the live database had drifted from the state Condition B was
+  actually measured under (76 indexes present instead of the correct 35,
+  because a later Condition A remeasurement ran on the same database without
+  first dropping Condition B's indexes). Restored the exact 35-index state
+  (21 primary keys + Condition B's 14 recommended indexes) before running
+  any diagnostic query, so the analysis below reflects the actual measured
+  condition.
+
+**What the plan shows:**
+Total execution time: 1,846,133 ms (~30.8 minutes). Planning time: 81 ms.
+Essentially all runtime (99.99%) is concentrated in one Nested Loop join,
+estimated by the planner at 1 row but producing 46,281 actual rows. Its
+inner side performs an Index Only Scan on `movie_info_idx` using Condition
+B's recommended composite index `(info_type_id, info, movie_id)`, executed
+47,475 times (once per outer row) at roughly 35 ms each -- about 1.67
+million ms total, ~90% of the query's entire runtime.
+
+**Root cause:** the index's column order is efficient only when the middle
+column (`info`) is filtered by equality. This query filters it with a range
+predicate (`info < '8.5'`), and `movie_id` -- the value each outer-loop
+iteration actually needs to locate -- sits after that open-ended range in
+the index's key order. Rather than binary-searching directly to the target
+`movie_id`, each of the 47,475 iterations must scan across a substantial
+portion of the rating range checking every entry's `movie_id`. This
+structural inefficiency was compounded by a severe cardinality
+misestimate (planner expected ~1 row, actual was 46,281), which is why the
+planner chose a nested-loop strategy in the first place -- a reasonable
+choice for the estimate it had, catastrophic for the reality.
+
+**Interpretation:** the recommended index was not ignored by the planner --
+it was used exactly as built. Its column ordering was simply mismatched to
+this specific query's predicate shape (range vs. equality), and Condition
+B's cost-estimation tool, which tests one candidate against one query at a
+time via real EXPLAIN cost, did not surface this because the same index
+performs well for other queries in the workload that filter `info` by
+equality. This is a concrete, mechanistic example of the broader
+cross-schema pattern (also observed independently by teammates on SSB and
+TPC-C): tool-augmented verification reduces some categories of error but
+cannot see column-order/predicate-type interactions that only manifest
+once a candidate index is evaluated against the query that actually
+exposes its weakness.
